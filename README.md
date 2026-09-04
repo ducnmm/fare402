@@ -8,13 +8,13 @@ Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026/prizes/hed
 
 ## Live
 
-Merchant (local): `http://localhost:4021` — public host after Railway.
+Merchant: https://fare-production.up.railway.app
 
 Settlements below are from ETHOnline day 1 (2026-09-04), Hedera testnet.
 
 | Call | Fare | Settlement |
 | --- | --- | --- |
-| `GET /v1/ping` | **1 unit** / `100000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788527401-592394683) |
+| `GET /v1/ping` (live) | **1 unit** / `100000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788535275-825788964) |
 | `GET /v1/accounts/0.0.98` | **1 unit** / `100000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788527411-784211089) |
 | `GET /v1/accounts/0.0.98/transactions?limit=25` | **4 units** / `400000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788527413-392360407) |
 
