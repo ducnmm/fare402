@@ -10,8 +10,10 @@
   "scripts": {
     "start": "tsx src/server.ts",
     "dev": "tsx watch src/server.ts",
+    "try": "tsx scripts/try.ts",
     "pay": "tsx scripts/pay-once.ts",
     "pay:demo": "tsx scripts/pay-once.ts demo",
+    "pay:live": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts",
     "hcs:topic": "tsx scripts/create-topic.ts",
     "test": "tsx --test src/price.test.ts src/hashscan.test.ts",
     "typecheck": "tsc --noEmit"

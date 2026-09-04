@@ -22,7 +22,9 @@ HCS topic: `0.0.10320508` — https://hashscan.io/testnet/topic/0.0.10320508
 
 ```bash
 npm start          # merchant
-npm run pay        # one paid ping
+npm run try        # unpaid smoke vs live Railway (no wallet)
+npm run pay        # one paid ping (local .env FARE_BASE_URL)
+npm run pay:live   # one paid ping against Railway
 npm run pay:demo   # unpaid 402 quotes, then cheap + expensive pays (budgeted)
 npm run hcs:topic  # create an HCS audit topic; prints HCS_TOPIC_ID=…
 ```
@@ -217,7 +219,7 @@ scripts/create-topic.ts  create an HCS audit topic
 Cursor / Claude / Codex / Grok were allowed for this hackathon. Files that were AI-assisted:
 
 - `src/server.ts`, `src/price.ts`, `src/mirror.ts`, `src/hcs.ts`, `src/config.ts`, `src/hashscan.ts`, `src/account-id.ts`
-- `scripts/pay-once.ts`, `scripts/create-topic.ts`
+- `scripts/pay-once.ts`, `scripts/create-topic.ts`, `scripts/try.ts`
 - `README.md`, `package.json`, `tsconfig.json`, `.env.example`
 
 ## Out of scope

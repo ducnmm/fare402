@@ -54,6 +54,22 @@ const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
+app.get("/", (_req, res) => {
+  res.json({
+    ok: true,
+    service: "fare",
+    oneLiner: "Pay-per-query Hedera lookups. Agents pay HBAR via x402.",
+    health: "/health",
+    paid: {
+      ping: "GET /v1/ping",
+      account: "GET /v1/accounts/0.0.98",
+      transactions: "GET /v1/accounts/0.0.98/transactions?limit=25",
+    },
+    tryUnpaid: "npm run try",
+    tryPaid: "FARE_BASE_URL=<this-origin> npm run pay",
+  });
+});
+
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
