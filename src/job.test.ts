@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseJobRequest, runJob, timeoutFromBody, JOB_MAX_SCRIPT_BYTES } from "./job.js";
+import { jobBackend, parseJobRequest, runJob, timeoutFromBody, JOB_MAX_SCRIPT_BYTES } from "./job.js";
 import { JOB_DEFAULT_TIMEOUT, unitsForJob } from "./price.js";
 import type { ServerConfig } from "./config.js";
 
@@ -29,6 +29,21 @@ test("parseJobRequest requires script", () => {
 test("parseJobRequest rejects oversized script", () => {
   const script = "a".repeat(JOB_MAX_SCRIPT_BYTES + 1);
   assert.throws(() => parseJobRequest({ script }), /bytes/);
+});
+
+test("jobBackend prefers Lambda over local", () => {
+  assert.equal(jobBackend({ jobLocal: true } as ServerConfig), "local");
+  assert.equal(
+    jobBackend({
+      jobLocal: true,
+      jobLambdaArn: "arn:aws:lambda:ap-southeast-1:1:function:fare-job-runner",
+      awsRegion: "ap-southeast-1",
+      awsAccessKeyId: "AKIATEST",
+      awsSecretAccessKey: "secret",
+    } as ServerConfig),
+    "aws-lambda",
+  );
+  assert.equal(jobBackend({} as ServerConfig), null);
 });
 
 test("local job returns stdout", async () => {

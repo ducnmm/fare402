@@ -7,7 +7,7 @@ import { isHederaAccountId } from "./account-id.js";
 import { loadServerConfig } from "./config.js";
 import { appendAudit, closeHcs, hcsEnabled } from "./hcs.js";
 import { hashscanTopicUrl, hashscanTxUrl } from "./hashscan.js";
-import { JobError, jobsEnabled, parseJobRequest, runJob, timeoutFromBody } from "./job.js";
+import { JobError, jobBackend, jobsEnabled, parseJobRequest, runJob, timeoutFromBody } from "./job.js";
 import { fetchAccountSummary, fetchAccountTransactions, MirrorError } from "./mirror.js";
 import {
   hbarPrice,
@@ -25,6 +25,7 @@ import {
 const cfg = loadServerConfig();
 const hcsOn = hcsEnabled(cfg);
 const jobsOn = jobsEnabled(cfg);
+const jobsProvider = jobBackend(cfg);
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: cfg.facilitatorUrl });
 
@@ -67,13 +68,23 @@ app.get("/", (_req, res) => {
   res.json({
     ok: true,
     service: "fare",
-    oneLiner: "Pay-per-query Hedera lookups. Agents pay HBAR via x402.",
+    oneLiner: "Two x402 tickets on Hedera: Hedera lookups, and a Node job on AWS Lambda.",
     health: "/health",
-    paid: {
-      ping: "GET /v1/ping",
-      account: "GET /v1/accounts/0.0.98",
-      transactions: "GET /v1/accounts/0.0.98/transactions?limit=25",
-      job: "POST /v1/jobs  { script, timeoutSeconds? } — AWS Lambda (or local) Node run",
+    services: {
+      lookups: {
+        what: "Hedera account summary and recent transactions (Mirror Node)",
+        routes: {
+          ping: "GET /v1/ping",
+          account: "GET /v1/accounts/0.0.98",
+          transactions: "GET /v1/accounts/0.0.98/transactions?limit=25",
+        },
+      },
+      jobs: {
+        what: "Run one Node.js script; pay per timeout. Returns stdout/stderr/exitCode",
+        route: "POST /v1/jobs",
+        body: { script: "console.log(1+1)", timeoutSeconds: 10 },
+        backend: jobsProvider,
+      },
     },
     tryUnpaid: "npm run try",
     tryPaid: "FARE_BASE_URL=<this-origin> npm run pay",
@@ -88,7 +99,7 @@ app.get("/health", (_req, res) => {
     facilitator: cfg.facilitatorUrl,
     merchant: cfg.operatorId,
     hcs: hcsOn ? (cfg.hcsTopicId ?? null) : null,
-    jobs: jobsOn ? (cfg.jobLocal ? "local" : "aws-lambda") : null,
+    jobs: jobsProvider,
   });
 });
 
@@ -269,7 +280,7 @@ app.listen(cfg.port, cfg.host, () => {
   console.log(`  payTo       ${cfg.operatorId}`);
   console.log(`  facilitator ${cfg.facilitatorUrl}`);
   console.log(`  mirror      ${cfg.mirrorNodeUrl}`);
-  console.log(`  jobs        ${jobsOn ? (cfg.jobLocal ? "local" : "aws-lambda") : "off"}`);
+  console.log(`  jobs        ${jobsProvider ?? "off"}`);
   if (hcsOn && cfg.hcsTopicId) {
     console.log(`  hcs topic   ${cfg.hcsTopicId}`);
     console.log(`  hcs         ${hashscanTopicUrl(cfg.network, cfg.hcsTopicId)}`);

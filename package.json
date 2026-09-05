@@ -2,7 +2,7 @@
   "name": "fare402",
   "version": "0.1.0",
   "private": true,
-  "description": "Pay-per-query Hedera lookups. Agents pay HBAR via x402; price scales with how much data they ask for.",
+  "description": "x402 tickets on Hedera: pay-per-query Mirror Node lookups, and pay-per-timeout AWS Lambda jobs.",
   "type": "module",
   "engines": {
     "node": ">=20"
@@ -14,6 +14,7 @@
     "pay": "tsx scripts/pay-once.ts",
     "pay:demo": "tsx scripts/pay-once.ts demo",
     "pay:live": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts",
+    "pay:job": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts job",
     "hcs:topic": "tsx scripts/create-topic.ts",
     "test": "tsx --test src/price.test.ts src/hashscan.test.ts src/job.test.ts",
     "typecheck": "tsc --noEmit"

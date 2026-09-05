@@ -1,10 +1,15 @@
 # Fare
 
-Pay-per-query Hedera lookups. Agents pay **HBAR** via **x402**; the fare scales with how much data they ask for.
+Two x402 tickets on Hedera. Agents pay **HBAR** through **Blocky402**; the fare scales with how much they ask for.
 
-Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026/prizes/hedera) — Hedera × [Blocky402](https://blocky402.com/) (From Scratch). Not a Lambda product; Railway/Lambda is only hosting.
+| Service | What you buy | Route |
+| --- | --- | --- |
+| **Lookups** | Hedera account + recent txs (Mirror Node JSON) | `GET /v1/accounts/…` |
+| **Jobs** | One Node.js run on AWS Lambda (`stdout` / `stderr` / `exitCode`) | `POST /v1/jobs` |
 
-> Fare = vé từng chuyến. A cheap account lookup is a cheap ticket. A wide transaction scan is a more expensive ticket.
+Built for [ETHOnline 2026](https://ethglobal.com/events/ethonline2026/prizes/hedera) — Hedera × [Blocky402](https://blocky402.com/) (From Scratch). The merchant is hosted on Railway; jobs execute on AWS Lambda.
+
+> Fare = vé từng chuyến. A cheap account lookup is a cheap ticket. A longer job (or a wider tx scan) is a more expensive ticket.
 
 ## Live
 
@@ -17,6 +22,7 @@ Settlements below are from ETHOnline day 1 (2026-09-04), Hedera testnet.
 | `GET /v1/ping` (live) | **1 unit** / `100000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788535275-825788964) |
 | `GET /v1/accounts/0.0.98` | **1 unit** / `100000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788527411-784211089) |
 | `GET /v1/accounts/0.0.98/transactions?limit=25` | **4 units** / `400000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788527413-392360407) |
+| `POST /v1/jobs` (AWS Lambda) | **2 units** / `200000` tinybars | [HashScan](https://hashscan.io/testnet/transaction/0.0.7162784-1788572341-958451191) |
 
 HCS topic: `0.0.10320508` — https://hashscan.io/testnet/topic/0.0.10320508
 
@@ -26,31 +32,36 @@ npm run try        # unpaid smoke vs live Railway (no wallet)
 npm run pay        # one paid ping (local .env FARE_BASE_URL)
 npm run pay:live   # one paid ping against Railway
 npm run pay:demo   # unpaid 402 quotes, then cheap + expensive pays (budgeted)
-npx tsx scripts/pay-once.ts job                 # paid AWS/local Node job
+npm run pay:job    # paid AWS Lambda job on Railway (console.log fare-job)
 npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'
 npm run hcs:topic  # create an HCS audit topic; prints HCS_TOPIC_ID=…
 ```
 
 ### Video (6 beats)
 
-1. **One-liner.** Fare is pay-per-query Hedera data. The ticket scales with how much you ask for.
+1. **One-liner.** Fare sells two tickets: Hedera lookups and an AWS Lambda job. Price scales with the ask.
 2. **Unpaid 402.** `GET /v1/accounts/0.0.98` returns 402 with `100000` tinybars.
 3. **Pay + JSON.** The client pays; the body is a mirror-node account summary.
 4. **Cheap HashScan.** Settlement for 1 unit / `100000` tinybars.
-5. **`limit=25`.** Same account, higher fare (`400000` tinybars) and a second HashScan.
+5. **`limit=25` vs job.** Wider scan (`400000` tinybars) or `POST /v1/jobs` (`200000`, stdout `2`).
 6. **HCS topic.** Audit lines with `amountTinybars` on the topic. Stop.
 
 ## What you get
 
-A live HTTP API:
+A live HTTP API with **two paid products**:
 
-1. Agent calls `GET /v1/accounts/{id}`
+1. **Lookups** — `GET /v1/accounts/{id}` (and `/transactions`). JSON from the public [Hedera Mirror Node](https://docs.hedera.com/hedera/sdks-and-apis/rest-api).
+2. **Jobs** — `POST /v1/jobs` with `{ script, timeoutSeconds }`. One Node run on AWS Lambda; body is `{ status, stdout, stderr, exitCode, provider: "aws-lambda" }`.
+
+Shared payment path:
+
+1. Agent hits a paid route with no payment header
 2. Server returns **402** + a Hedera `exact` quote (tinybars, `asset: 0.0.0`)
 3. Client pays through **Blocky402** (we do **not** run a facilitator)
-4. Retry with payment proof → JSON from the public [Hedera Mirror Node](https://docs.hedera.com/hedera/sdks-and-apis/rest-api)
+4. Retry with payment proof → product JSON
 5. Settlement tx is visible on [HashScan](https://hashscan.io)
 
-This repo is the **merchant** (resource server) plus a **tiny paying client**.
+This repo is the **merchant** (resource server) plus a **tiny paying client**. `GET /v1/ping` is a 1-unit dummy to prove the 402 loop.
 
 ## Endpoints
 
@@ -62,15 +73,15 @@ This repo is the **merchant** (resource server) plus a **tiny paying client**.
 | `GET /v1/accounts/{accountId}/transactions?limit=` | x402 | **`1 + ceil(limit/10)` units**. Default `limit=10` (2 units). `limit=25` → 4 units. Cap 100. |
 | `POST /v1/jobs` | x402 | **`1 + ceil(timeoutSeconds/10)` units**. Body `{ script, timeoutSeconds? }`. Default timeout 10s (2 units). Cap 60s. AWS Lambda when `AWS_SANDBOX_LAMBDA_ARN` is set; `FARE_JOB_LOCAL=1` runs on the merchant. |
 
-Data source for lookups: `https://testnet.mirrornode.hedera.com` (override with `MIRROR_NODE_URL`). No indexer of our own.
+**Lookups** read `https://testnet.mirrornode.hedera.com` (`MIRROR_NODE_URL`). No indexer of our own.
 
-`POST /v1/jobs` is a second product: pay HBAR, run one Node script, get `stdout` / `stderr` / `exitCode`. Payload matches an AWS Lambda sandbox runner (`runtime: node22`). Set `AWS_SANDBOX_LAMBDA_ARN` + AWS keys to invoke Lambda; set `FARE_JOB_LOCAL=1` to run on the merchant (dev only). Unconfigured merchants return **503** `jobs_not_configured` and never 402.
+**Jobs** invoke Lambda `AWS_SANDBOX_LAMBDA_ARN` (`runtime: node22`). Unconfigured merchants return **503** `jobs_not_configured` and never 402. `FARE_JOB_LOCAL=1` is dev-only (child process on the merchant — do not set on a public host).
 
 ## Architecture
 
 ```
 paying client (scripts/pay-once.ts)
-    │  GET /v1/...
+    │  GET /v1/accounts/…   or   POST /v1/jobs
     │  402 + PAYMENT-REQUIRED (Hedera exact, HBAR)
     │  sign TransferTransaction (payer)
     │  retry with PAYMENT-SIGNATURE
@@ -79,12 +90,12 @@ Fare resource server (src/server.ts)
     │  @x402/express + ExactHederaScheme
     │  verify/settle via Blocky402
     │  onAfterSettle → optional HCS audit line
-    ▼
-Hedera Mirror Node REST          HashScan
-AWS Lambda (optional POST /v1/jobs)
+    ├─ lookups → Hedera Mirror Node REST
+    └─ jobs    → AWS Lambda (fare-job-runner)
+                   HashScan
 ```
 
-Metering lives in `src/price.ts`. The transaction route’s `price` is a function of `limit`, not a flat per-request charge.
+Metering lives in `src/price.ts`. Lookups meter on `limit`; jobs meter on `timeoutSeconds`. Not a flat per-request charge.
 
 ## Payment flow
 
@@ -93,7 +104,7 @@ Metering lives in `src/price.ts`. The transaction route’s `price` is a functio
 3. **Sign.** `@x402/hedera` builds a `TransferTransaction` from the payer to `HEDERA_OPERATOR_ID`. The facilitator is the fee payer; the client only signs as the HBAR sender.
 4. **Retry.** `@x402/fetch` sends the same request with `PAYMENT-SIGNATURE`.
 5. **Verify + settle.** Resource server forwards the payload to Blocky402. Blocky402 co-signs, submits to Hedera, returns a transaction id (`0.0.<feePayer>@<seconds>.<nanos>`).
-6. **Body.** After settlement, the handler proxies Mirror Node JSON. The `PAYMENT-RESPONSE` header carries the settle tx. Optional: `src/hcs.ts` appends `{account, amountTinybars, txId}` to an HCS topic.
+6. **Body.** After settlement, lookups return Mirror Node JSON; jobs return Lambda `{status, stdout, stderr, exitCode}`. The `PAYMENT-RESPONSE` header carries the settle tx. Optional: `src/hcs.ts` appends `{account, amountTinybars, txId}` to an HCS topic.
 
 We do **not** fork x402 or Blocky402. We do **not** copy the Hedera inference PoC — that repo is flow reference only.
 
@@ -139,9 +150,14 @@ curl -si http://localhost:4021/v1/ping
 
 curl -si 'http://localhost:4021/v1/accounts/0.0.98/transactions?limit=25' \
   | grep -i payment
+
+curl -si http://localhost:4021/v1/jobs \
+  -H 'content-type: application/json' \
+  -d '{"script":"console.log(1+1)","timeoutSeconds":10}'
+# 402, amount 200000 tinybars
 ```
 
-Decode the quote (GET, not HEAD — x402 only matches GET, so `curl -I` is 405):
+Decode the quote (`curl -I` is 405 — x402 is GET/POST only, not HEAD):
 
 ```bash
 curl -sD - -o /dev/null http://localhost:4021/v1/ping \
@@ -177,6 +193,7 @@ Other calls:
 npx tsx scripts/pay-once.ts account 0.0.98
 npx tsx scripts/pay-once.ts txs 0.0.98 10
 npx tsx scripts/pay-once.ts txs 0.0.98 25
+npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'
 ```
 
 The script logs the 402 amount, the settle tx id, and a HashScan link.
@@ -196,7 +213,7 @@ Put that id in `.env` as `HCS_TOPIC_ID` (the script does not write `.env`) and r
 
 ## Deploy (Railway)
 
-Set the same env vars (do **not** commit `.env`). `PORT` is provided by the host. Start command is `npm start`. Health check: `GET /health`.
+Set the same env vars (do **not** commit `.env`), including AWS keys for jobs. `PORT` is provided by the host. Start command is `npm start`. Health check: `GET /health` (`jobs` should be `"aws-lambda"`).
 
 Point `FARE_BASE_URL` at the public HTTPS origin when you run the client against prod.
 

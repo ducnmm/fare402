@@ -22,6 +22,8 @@ export type JobRequest = {
   timeoutSeconds: number;
 };
 
+export type JobBackend = "aws-lambda" | "local";
+
 export type JobResult = {
   status: JobStatus;
   exitCode: number | null;
@@ -29,7 +31,7 @@ export type JobResult = {
   stderr: string;
   truncated: boolean;
   timeoutSeconds: number;
-  provider: "aws-lambda" | "local";
+  provider: JobBackend;
 };
 
 export class JobError extends Error {
@@ -42,8 +44,19 @@ export class JobError extends Error {
   }
 }
 
+function lambdaConfigured(cfg: ServerConfig): boolean {
+  return Boolean(cfg.jobLambdaArn && cfg.awsRegion && cfg.awsAccessKeyId && cfg.awsSecretAccessKey);
+}
+
+/** Lambda wins if both backends are set — same order as {@link runJob}. */
+export function jobBackend(cfg: ServerConfig): JobBackend | null {
+  if (lambdaConfigured(cfg)) return "aws-lambda";
+  if (cfg.jobLocal) return "local";
+  return null;
+}
+
 export function jobsEnabled(cfg: ServerConfig): boolean {
-  return Boolean(cfg.jobLocal || (cfg.jobLambdaArn && cfg.awsRegion && cfg.awsAccessKeyId && cfg.awsSecretAccessKey));
+  return jobBackend(cfg) !== null;
 }
 
 export function timeoutFromBody(body: unknown): number {
@@ -89,12 +102,9 @@ export function parseJobRequest(input: unknown): JobRequest {
 }
 
 export async function runJob(cfg: ServerConfig, request: JobRequest): Promise<JobResult> {
-  if (cfg.jobLambdaArn && cfg.awsRegion && cfg.awsAccessKeyId && cfg.awsSecretAccessKey) {
-    return invokeLambda(cfg, request);
-  }
-  if (cfg.jobLocal) {
-    return runLocal(request);
-  }
+  const backend = jobBackend(cfg);
+  if (backend === "aws-lambda") return invokeLambda(cfg, request);
+  if (backend === "local") return runLocal(request);
   throw new JobError("jobs_not_configured", 503);
 }
 
