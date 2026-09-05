@@ -7,6 +7,7 @@ import { isHederaAccountId } from "./account-id.js";
 import { loadServerConfig } from "./config.js";
 import { appendAudit, closeHcs, hcsEnabled } from "./hcs.js";
 import { hashscanTopicUrl, hashscanTxUrl } from "./hashscan.js";
+import { JobError, jobsEnabled, parseJobRequest, runJob, timeoutFromBody } from "./job.js";
 import { fetchAccountSummary, fetchAccountTransactions, MirrorError } from "./mirror.js";
 import {
   hbarPrice,
@@ -17,11 +18,13 @@ import {
   PING_UNITS,
   pricingMeta,
   unitsForAccountSummary,
+  unitsForJob,
   unitsForTransactions,
 } from "./price.js";
 
 const cfg = loadServerConfig();
 const hcsOn = hcsEnabled(cfg);
+const jobsOn = jobsEnabled(cfg);
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: cfg.facilitatorUrl });
 
@@ -50,9 +53,15 @@ const transactionsPrice: DynamicPrice = (context) => {
   return hbarPrice(unitsForTransactions(limit));
 };
 
+const jobsPrice: DynamicPrice = (context) => {
+  const timeout = timeoutFromBody(context.adapter.getBody?.());
+  return hbarPrice(unitsForJob(timeout));
+};
+
 const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+app.use(express.json({ limit: "16kb" }));
 
 app.get("/", (_req, res) => {
   res.json({
@@ -64,6 +73,7 @@ app.get("/", (_req, res) => {
       ping: "GET /v1/ping",
       account: "GET /v1/accounts/0.0.98",
       transactions: "GET /v1/accounts/0.0.98/transactions?limit=25",
+      job: "POST /v1/jobs  { script, timeoutSeconds? } — AWS Lambda (or local) Node run",
     },
     tryUnpaid: "npm run try",
     tryPaid: "FARE_BASE_URL=<this-origin> npm run pay",
@@ -78,6 +88,7 @@ app.get("/health", (_req, res) => {
     facilitator: cfg.facilitatorUrl,
     merchant: cfg.operatorId,
     hcs: hcsOn ? (cfg.hcsTopicId ?? null) : null,
+    jobs: jobsOn ? (cfg.jobLocal ? "local" : "aws-lambda") : null,
   });
 });
 
@@ -102,6 +113,15 @@ app.use(
           price: transactionsPrice,
         },
         description: "Recent Hedera transactions. Price = 1 + ceil(limit/10) units (1 unit = 0.001 HBAR)",
+        mimeType: "application/json",
+      },
+      "POST /v1/jobs": {
+        accepts: {
+          ...paidAccepts,
+          price: jobsPrice,
+        },
+        description:
+          "Run a short Node.js script. Price = 1 + ceil(timeoutSeconds/10) units. Max 10KB script, timeout 1-60s.",
         mimeType: "application/json",
       },
     },
@@ -144,8 +164,55 @@ app.get("/v1/accounts/:accountId/transactions", async (req, res) => {
   }
 });
 
+app.post("/v1/jobs", async (req, res) => {
+  try {
+    const request = parseJobRequest(req.body);
+    const result = await runJob(cfg, request);
+    res.json({
+      pricing: pricingMeta(unitsForJob(request.timeoutSeconds)),
+      ...result,
+    });
+  } catch (err) {
+    if (err instanceof JobError) {
+      res.status(err.status).json({ error: err.message });
+      return;
+    }
+    console.error(err);
+    res.status(502).json({ error: "job_failed" });
+  }
+});
+
 function guardPaidPath(req: express.Request, res: express.Response, next: express.NextFunction): void {
   if (!req.path.startsWith("/v1")) {
+    next();
+    return;
+  }
+
+  if (req.path === "/v1/jobs") {
+    if (req.method !== "POST") {
+      res.set("Allow", "POST");
+      res.status(405);
+      if (req.method === "HEAD") {
+        res.end();
+        return;
+      }
+      res.json({ error: "method_not_allowed" });
+      return;
+    }
+    if (!jobsOn) {
+      res.status(503).json({ error: "jobs_not_configured" });
+      return;
+    }
+    try {
+      parseJobRequest(req.body);
+    } catch (err) {
+      if (err instanceof JobError) {
+        res.status(err.status).json({ error: err.message });
+        return;
+      }
+      res.status(400).json({ error: "invalid_job" });
+      return;
+    }
     next();
     return;
   }
@@ -202,6 +269,7 @@ app.listen(cfg.port, cfg.host, () => {
   console.log(`  payTo       ${cfg.operatorId}`);
   console.log(`  facilitator ${cfg.facilitatorUrl}`);
   console.log(`  mirror      ${cfg.mirrorNodeUrl}`);
+  console.log(`  jobs        ${jobsOn ? (cfg.jobLocal ? "local" : "aws-lambda") : "off"}`);
   if (hcsOn && cfg.hcsTopicId) {
     console.log(`  hcs topic   ${cfg.hcsTopicId}`);
     console.log(`  hcs         ${hashscanTopicUrl(cfg.network, cfg.hcsTopicId)}`);

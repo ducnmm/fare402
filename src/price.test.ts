@@ -9,6 +9,7 @@ import {
   tinybarsForUnits,
   UNIT_TINYBARS,
   unitsForAccountSummary,
+  unitsForJob,
   unitsForTransactions,
 } from "./price.js";
 
@@ -38,6 +39,12 @@ test("limit is clamped to 1..100", () => {
   assert.equal(parseLimit("25"), 25);
   assert.equal(parseLimit(["25"]), 25);
   assert.equal(parseLimit("nope"), DEFAULT_LIMIT);
+});
+
+test("job meters 1 + ceil(timeout/10)", () => {
+  assert.equal(unitsForJob(10), 2);
+  assert.equal(unitsForJob(30), 4);
+  assert.equal(tinybarsForUnits(unitsForJob(10)), 200_000);
 });
 
 test("limit query validation", () => {

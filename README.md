@@ -26,6 +26,8 @@ npm run try        # unpaid smoke vs live Railway (no wallet)
 npm run pay        # one paid ping (local .env FARE_BASE_URL)
 npm run pay:live   # one paid ping against Railway
 npm run pay:demo   # unpaid 402 quotes, then cheap + expensive pays (budgeted)
+npx tsx scripts/pay-once.ts job                 # paid AWS/local Node job
+npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'
 npm run hcs:topic  # create an HCS audit topic; prints HCS_TOPIC_ID=…
 ```
 
@@ -58,8 +60,11 @@ This repo is the **merchant** (resource server) plus a **tiny paying client**.
 | `GET /v1/ping` | x402 | **1 unit** = 0.001 HBAR (`100000` tinybars) |
 | `GET /v1/accounts/{accountId}` | x402 | **1 unit** — balance, key, memo |
 | `GET /v1/accounts/{accountId}/transactions?limit=` | x402 | **`1 + ceil(limit/10)` units**. Default `limit=10` (2 units). `limit=25` → 4 units. Cap 100. |
+| `POST /v1/jobs` | x402 | **`1 + ceil(timeoutSeconds/10)` units**. Body `{ script, timeoutSeconds? }`. Default timeout 10s (2 units). Cap 60s. AWS Lambda when `AWS_SANDBOX_LAMBDA_ARN` is set; `FARE_JOB_LOCAL=1` runs on the merchant. |
 
-Data source: `https://testnet.mirrornode.hedera.com` (override with `MIRROR_NODE_URL`). No indexer of our own.
+Data source for lookups: `https://testnet.mirrornode.hedera.com` (override with `MIRROR_NODE_URL`). No indexer of our own.
+
+`POST /v1/jobs` is a second product: pay HBAR, run one Node script, get `stdout` / `stderr` / `exitCode`. Payload matches an AWS Lambda sandbox runner (`runtime: node22`). Set `AWS_SANDBOX_LAMBDA_ARN` + AWS keys to invoke Lambda; set `FARE_JOB_LOCAL=1` to run on the merchant (dev only). Unconfigured merchants return **503** `jobs_not_configured` and never 402.
 
 ## Architecture
 
@@ -76,6 +81,7 @@ Fare resource server (src/server.ts)
     │  onAfterSettle → optional HCS audit line
     ▼
 Hedera Mirror Node REST          HashScan
+AWS Lambda (optional POST /v1/jobs)
 ```
 
 Metering lives in `src/price.ts`. The transaction route’s `price` is a function of `limit`, not a flat per-request charge.
@@ -206,9 +212,10 @@ Pricing math does not hit the network. Live 402/Blocky402 is verified with `curl
 ## Layout
 
 ```
-src/server.ts         402 gate + mirror proxy
+src/server.ts         402 gate + mirror proxy + paid jobs
 src/price.ts          units → tinybars
 src/mirror.ts         Hedera Mirror Node REST
+src/job.ts            AWS Lambda / local Node runner
 src/hcs.ts            optional payment audit trail
 scripts/pay-once.ts   wrapFetchWithPayment + ExactHederaScheme
 scripts/create-topic.ts  create an HCS audit topic
@@ -218,7 +225,7 @@ scripts/create-topic.ts  create an HCS audit topic
 
 Cursor / Claude / Codex / Grok were allowed for this hackathon. Files that were AI-assisted:
 
-- `src/server.ts`, `src/price.ts`, `src/mirror.ts`, `src/hcs.ts`, `src/config.ts`, `src/hashscan.ts`, `src/account-id.ts`
+- `src/server.ts`, `src/price.ts`, `src/mirror.ts`, `src/job.ts`, `src/hcs.ts`, `src/config.ts`, `src/hashscan.ts`, `src/account-id.ts`
 - `scripts/pay-once.ts`, `scripts/create-topic.ts`, `scripts/try.ts`
 - `README.md`, `package.json`, `tsconfig.json`, `.env.example`
 

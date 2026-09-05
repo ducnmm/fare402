@@ -8,6 +8,8 @@
  *   npx tsx scripts/pay-once.ts account 0.0.98
  *   npx tsx scripts/pay-once.ts txs 0.0.98 10
  *   npx tsx scripts/pay-once.ts txs 0.0.98 25
+ *   npx tsx scripts/pay-once.ts job
+ *   npx tsx scripts/pay-once.ts job 10 'console.log("hi")'
  *   npx tsx scripts/pay-once.ts demo 0.0.98
  */
 import { wrapFetchWithPayment } from "@x402/fetch";
@@ -63,7 +65,7 @@ const loggingFetch: typeof fetch = async (input, init) => {
 
 const fetchWithPayment = wrapFetchWithPayment(loggingFetch, client);
 
-type Target = { label: string; path: string };
+type Target = { label: string; path: string; init?: RequestInit };
 
 type Quote = {
   amount?: string;
@@ -104,9 +106,24 @@ function targetsFromArgv(argv: string[]): Target[] {
       const limit = b ?? "10";
       return [{ label: `transactions limit=${limit}`, path: `/v1/accounts/${id}/transactions?limit=${limit}` }];
     }
+    case "job": {
+      const timeout = a && /^\d+$/.test(a) ? Number.parseInt(a, 10) : 10;
+      const script = a && !/^\d+$/.test(a) ? a : (b ?? 'console.log("fare-job")');
+      return [
+        {
+          label: `job timeout=${timeout}`,
+          path: "/v1/jobs",
+          init: {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ script, timeoutSeconds: timeout }),
+          },
+        },
+      ];
+    }
     default:
       if (cmd.startsWith("/")) return [{ label: cmd, path: cmd }];
-      throw new Error(`Unknown command ${cmd}. Use ping | account | txs | demo | /path`);
+      throw new Error(`Unknown command ${cmd}. Use ping | account | txs | job | demo | /path`);
   }
 }
 
@@ -182,7 +199,7 @@ async function unpaidQuote(target: Target): Promise<string | undefined> {
   const url = `${cfg.baseUrl}${target.path}`;
   console.log(`\n→ unpaid ${target.label}`);
   console.log(`  ${url}`);
-  const response = await loggingFetch(url, { method: "GET" });
+  const response = await loggingFetch(url, target.init ?? { method: "GET" });
   const quoted = quoteFrom402(response);
   await drain(response);
   return quoted?.amount;
@@ -193,7 +210,7 @@ async function payOnce(target: Target): Promise<void> {
   console.log(`\n→ ${target.label}`);
   console.log(`  ${url}`);
 
-  const response = await fetchWithPayment(url, { method: "GET" });
+  const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
   const bodyText = await response.text();
   let body: unknown = bodyText;
   try {
@@ -239,7 +256,7 @@ async function payIfWithinBudget(
   console.log(`  ${url}`);
   console.log(`  quote ${amount} tinybars ≤ remaining ${remaining}`);
 
-  const response = await fetchWithPayment(url, { method: "GET" });
+  const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
   const bodyText = await response.text();
   let body: unknown = bodyText;
   try {

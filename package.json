@@ -15,10 +15,11 @@
     "pay:demo": "tsx scripts/pay-once.ts demo",
     "pay:live": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts",
     "hcs:topic": "tsx scripts/create-topic.ts",
-    "test": "tsx --test src/price.test.ts src/hashscan.test.ts",
+    "test": "tsx --test src/price.test.ts src/hashscan.test.ts src/job.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-lambda": "^3.1127.0",
     "@hiero-ledger/sdk": "2.85.0",
     "@x402/core": "^2.23.0",
     "@x402/express": "^2.23.0",

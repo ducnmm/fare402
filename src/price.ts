@@ -11,6 +11,10 @@ export const MIN_LIMIT = 1;
 export const MAX_LIMIT = 100;
 export const DEFAULT_LIMIT = 10;
 
+export const JOB_MIN_TIMEOUT = 1;
+export const JOB_MAX_TIMEOUT = 60;
+export const JOB_DEFAULT_TIMEOUT = 10;
+
 export type HbarPrice = {
   asset: typeof HBAR_ASSET;
   amount: string;
@@ -58,6 +62,16 @@ export function unitsForAccountSummary(): number {
  */
 export function unitsForTransactions(limit: number): number {
   return 1 + Math.ceil(clampLimit(limit) / 10);
+}
+
+export function clampTimeout(timeoutSeconds: number): number {
+  if (!Number.isFinite(timeoutSeconds)) return JOB_DEFAULT_TIMEOUT;
+  return Math.min(JOB_MAX_TIMEOUT, Math.max(JOB_MIN_TIMEOUT, Math.trunc(timeoutSeconds)));
+}
+
+/** AWS job: `1 + ceil(timeoutSeconds / 10)` units. Longer wall clock costs more HBAR. */
+export function unitsForJob(timeoutSeconds: number): number {
+  return 1 + Math.ceil(clampTimeout(timeoutSeconds) / 10);
 }
 
 export function tinybarsForUnits(units: number): number {

@@ -30,12 +30,13 @@ function quoteFrom402(response: Response): Quote | null {
   }
 }
 
-async function hit(path: string): Promise<void> {
+async function hit(path: string, init?: RequestInit): Promise<void> {
   const url = `${baseUrl}${path}`;
-  const response = await fetch(url, { method: "GET" });
+  const response = await fetch(url, init ?? { method: "GET" });
   const quoted = quoteFrom402(response);
   const body = await response.text();
-  console.log(`\nGET ${path}`);
+  const method = init?.method ?? "GET";
+  console.log(`\n${method} ${path}`);
   console.log(`  ${response.status} ${url}`);
   if (quoted?.amount) {
     console.log(`  402 amount ${quoted.amount} tinybars  asset ${quoted.asset}  payTo ${quoted.payTo}`);
@@ -52,8 +53,14 @@ async function main(): Promise<void> {
   await hit("/v1/ping");
   await hit("/v1/accounts/0.0.98");
   await hit("/v1/accounts/0.0.98/transactions?limit=25");
+  await hit("/v1/jobs", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ script: 'console.log("fare-job")', timeoutSeconds: 10 }),
+  });
   console.log("\nPaid ping (needs .env payer keys):");
   console.log(`  FARE_BASE_URL=${baseUrl} npm run pay`);
+  console.log(`  FARE_BASE_URL=${baseUrl} npx tsx scripts/pay-once.ts job`);
 }
 
 main().catch((err) => {

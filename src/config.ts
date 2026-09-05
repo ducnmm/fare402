@@ -44,6 +44,11 @@ export type ServerConfig = {
   hcsTopicId: string | undefined;
   port: number;
   host: string;
+  jobLambdaArn: string | undefined;
+  jobLocal: boolean;
+  awsRegion: string | undefined;
+  awsAccessKeyId: string | undefined;
+  awsSecretAccessKey: string | undefined;
 };
 
 export type ClientConfig = {
@@ -67,6 +72,11 @@ export function loadServerConfig(): ServerConfig {
     hcsTopicId: process.env.HCS_TOPIC_ID?.trim() || undefined,
     port: Number.parseInt(process.env.PORT ?? "4021", 10) || 4021,
     host: process.env.HOST?.trim() || "0.0.0.0",
+    jobLambdaArn: process.env.AWS_SANDBOX_LAMBDA_ARN?.trim() || undefined,
+    jobLocal: process.env.FARE_JOB_LOCAL === "1",
+    awsRegion: process.env.AWS_REGION?.trim() || undefined,
+    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID?.trim() || undefined,
+    awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY?.trim() || undefined,
   };
 }
 
