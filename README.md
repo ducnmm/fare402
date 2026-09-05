@@ -2,7 +2,7 @@
 
 Pay-per-query tickets on Hedera. Agents pay **HBAR** via **x402** / [Blocky402](https://blocky402.com/). Price scales with the ask.
 
-ETHOnline 2026 — Hedera × Blocky402 (From Scratch). Merchant on Railway; jobs on AWS Lambda.
+Merchant on Railway; jobs on AWS Lambda.
 
 | Service | Buy | Route | Price |
 | --- | --- | --- | --- |
