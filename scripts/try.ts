@@ -30,37 +30,52 @@ function quoteFrom402(response: Response): Quote | null {
   }
 }
 
-async function hit(path: string, init?: RequestInit): Promise<void> {
+async function hit(label: string, meaning: string, path: string, init?: RequestInit): Promise<void> {
   const url = `${baseUrl}${path}`;
+  const method = init?.method ?? "GET";
+  console.log("\n────────────────────────────────────────");
+  console.log("YOU ASKED");
+  console.log(`   service   ${label}`);
+  console.log(`   meaning   ${meaning}`);
+  console.log(`   request   ${method} ${url}`);
+  if (typeof init?.body === "string") console.log(`   body      ${init.body}`);
+
   const response = await fetch(url, init ?? { method: "GET" });
   const quoted = quoteFrom402(response);
   const body = await response.text();
-  const method = init?.method ?? "GET";
-  console.log(`\n${method} ${path}`);
-  console.log(`  ${response.status} ${url}`);
+
   if (quoted?.amount) {
-    console.log(`  402 amount ${quoted.amount} tinybars  asset ${quoted.asset}  payTo ${quoted.payTo}`);
-  } else {
-    const preview = body.length > 300 ? `${body.slice(0, 300)}…` : body;
-    console.log(`  body ${preview}`);
+    console.log("MERCHANT SAID  HTTP 402 — pay first, no data yet");
+    console.log(`   price     ${quoted.amount} tinybars  =  ${Number(quoted.amount) / 1e8} HBAR`);
+    console.log(`   pay to    ${quoted.payTo}`);
+    return;
   }
+  console.log(`MERCHANT SAID  HTTP ${response.status}  (free route)`);
+  const preview = body.length > 240 ? `${body.slice(0, 240)}…` : body;
+  console.log(`   body      ${preview}`);
 }
 
 async function main(): Promise<void> {
-  console.log(`Fare try (unpaid)  ${baseUrl}`);
-  await hit("/");
-  await hit("/health");
-  await hit("/v1/ping");
-  await hit("/v1/accounts/0.0.98");
-  await hit("/v1/accounts/0.0.98/transactions?limit=25");
-  await hit("/v1/jobs", {
+  console.log("Fare try — unpaid only (no wallet, no HBAR spent)");
+  console.log(`Merchant  ${baseUrl}`);
+  await hit("catalog", "list the two services", "/", { method: "GET" });
+  await hit("health", "is the merchant up?", "/health");
+  await hit("lookups / ping", "dummy ticket to prove 402", "/v1/ping");
+  await hit("lookups / account", "balance of Hedera account 0.0.98", "/v1/accounts/0.0.98");
+  await hit(
+    "lookups / transactions",
+    "last 25 txs for 0.0.98 (4× ping price)",
+    "/v1/accounts/0.0.98/transactions?limit=25",
+  );
+  await hit("jobs / AWS Lambda", "run a Node script, return stdout", "/v1/jobs", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ script: 'console.log("fare-job")', timeoutSeconds: 10 }),
   });
-  console.log("\nPaid ping (needs .env payer keys):");
+  console.log("\nTo actually pay and see output:");
   console.log(`  FARE_BASE_URL=${baseUrl} npm run pay`);
-  console.log(`  FARE_BASE_URL=${baseUrl} npx tsx scripts/pay-once.ts job`);
+  console.log(`  FARE_BASE_URL=${baseUrl} npx tsx scripts/pay-once.ts account 0.0.98`);
+  console.log(`  FARE_BASE_URL=${baseUrl} npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'`);
 }
 
 main().catch((err) => {

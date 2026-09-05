@@ -21,7 +21,6 @@ import { hashscanAccountUrl, hashscanTxUrl } from "../src/hashscan.js";
 import { HBAR_ASSET } from "../src/price.js";
 
 const DEFAULT_BUDGET_TINYBARS = 1_000_000n;
-const BODY_PREVIEW_CHARS = 800;
 
 const cfg = loadClientConfig();
 const budgetTinybars = loadBudgetTinybars();
@@ -45,27 +44,25 @@ client.setSpendControls({
 const httpClient = new x402HTTPClient(client);
 
 const loggingFetch: typeof fetch = async (input, init) => {
-  const url = String(input instanceof Request ? input.url : input);
-  const method = init?.method ?? (input instanceof Request ? input.method : "GET");
   const response = await fetch(input, init);
-
   if (response.status === 402) {
     const quoted = quoteFrom402(response);
-    console.log(`← 402 Payment Required  ${method} ${url}`);
-    if (quoted) {
-      console.log(`   amount    ${quoted.amount} tinybars (${Number(quoted.amount) / 1e8} HBAR)`);
-      console.log(`   asset     ${quoted.asset}  network ${quoted.network}  payTo ${quoted.payTo}`);
-      if (quoted.feePayer) console.log(`   feePayer  ${quoted.feePayer} (Blocky402)`);
+    console.log("\n2. MERCHANT QUOTED  (HTTP 402 — no data yet)");
+    if (quoted?.amount) {
+      console.log(`   price     ${quoted.amount} tinybars  =  ${hbarLabel(quoted.amount)}`);
+      console.log(`   asset     ${quoted.asset} (${quoted.network})`);
+      console.log(`   pay to    ${quoted.payTo}`);
+      if (quoted.feePayer) console.log(`   fee payer ${quoted.feePayer}  (Blocky402)`);
+    } else {
+      console.log("   (402 with no decodeable quote)");
     }
-  } else {
-    console.log(`← ${response.status} ${method} ${url}`);
   }
   return response;
 };
 
 const fetchWithPayment = wrapFetchWithPayment(loggingFetch, client);
 
-type Target = { label: string; path: string; init?: RequestInit };
+type Target = { label: string; path: string; init?: RequestInit; ask?: string };
 
 type Quote = {
   amount?: string;
@@ -96,23 +93,36 @@ function targetsFromArgv(argv: string[]): Target[] {
   const [cmd = "ping", a, b] = argv;
   switch (cmd) {
     case "ping":
-      return [{ label: "ping", path: "/v1/ping" }];
+      return [{ label: "ping", path: "/v1/ping", ask: "dummy ping — prove 402 → pay → { ok: true }" }];
     case "account": {
       const id = a ?? "0.0.98";
-      return [{ label: "account summary", path: `/v1/accounts/${id}` }];
+      return [
+        {
+          label: "lookups / account",
+          path: `/v1/accounts/${id}`,
+          ask: `Hedera account summary for ${id} (balance, key, memo)`,
+        },
+      ];
     }
     case "txs": {
       const id = a ?? "0.0.98";
       const limit = b ?? "10";
-      return [{ label: `transactions limit=${limit}`, path: `/v1/accounts/${id}/transactions?limit=${limit}` }];
+      return [
+        {
+          label: "lookups / transactions",
+          path: `/v1/accounts/${id}/transactions?limit=${limit}`,
+          ask: `last ${limit} transactions for ${id} (metered: more rows = more HBAR)`,
+        },
+      ];
     }
     case "job": {
       const timeout = a && /^\d+$/.test(a) ? Number.parseInt(a, 10) : 10;
       const script = a && !/^\d+$/.test(a) ? a : (b ?? 'console.log("fare-job")');
       return [
         {
-          label: `job timeout=${timeout}`,
+          label: "jobs / AWS Lambda",
           path: "/v1/jobs",
+          ask: `run this Node script for up to ${timeout}s, return stdout`,
           init: {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -129,10 +139,15 @@ function targetsFromArgv(argv: string[]): Target[] {
 
 function demoTargets(accountId: string): { cheap: Target; expensive: Target } {
   return {
-    cheap: { label: "cheap — account summary (1 unit)", path: `/v1/accounts/${accountId}` },
+    cheap: {
+      label: "lookups / account (cheap)",
+      path: `/v1/accounts/${accountId}`,
+      ask: `Hedera account summary for ${accountId} — 1 unit`,
+    },
     expensive: {
-      label: "expensive — transactions limit=25 (4 units)",
+      label: "lookups / transactions (expensive)",
       path: `/v1/accounts/${accountId}/transactions?limit=25`,
+      ask: `last 25 transactions for ${accountId} — 4 units`,
     },
   };
 }
@@ -172,18 +187,94 @@ function settlementOf(response: Response): { transaction?: string; payer?: strin
   }
 }
 
-function previewJson(body: unknown): string {
-  let value: unknown = body;
-  if (value && typeof value === "object" && !Array.isArray(value) && "transactions" in value) {
-    const rec = { ...(value as Record<string, unknown>) };
-    if (Array.isArray(rec.transactions)) {
-      rec.transactions = [`${rec.transactions.length} transactions omitted`];
-    }
-    value = rec;
+function hbarLabel(tinybars: string | number | undefined): string {
+  const n = typeof tinybars === "number" ? tinybars : Number(tinybars ?? 0);
+  if (!Number.isFinite(n)) return "? HBAR";
+  return `${n / 1e8} HBAR`;
+}
+
+function printAsk(target: Target): void {
+  const method = String(target.init?.method ?? "GET").toUpperCase();
+  const url = `${cfg.baseUrl}${target.path}`;
+  console.log("\n────────────────────────────────────────");
+  console.log("1. YOU ASKED");
+  console.log(`   service   ${target.label}`);
+  if (target.ask) console.log(`   meaning   ${target.ask}`);
+  console.log(`   request   ${method} ${url}`);
+  if (typeof target.init?.body === "string") {
+    console.log(`   body      ${target.init.body}`);
   }
-  const text = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-  if (text.length <= BODY_PREVIEW_CHARS) return text;
-  return `${text.slice(0, BODY_PREVIEW_CHARS)}\n  … truncated`;
+}
+
+function highlightOutput(body: unknown): string[] {
+  if (!body || typeof body !== "object") return [`raw  ${String(body)}`];
+  const rec = body as Record<string, unknown>;
+  const lines: string[] = [];
+
+  if (rec.ok === true && rec.pricing) {
+    lines.push("ping ok — payment loop works, no Hedera data in this ticket");
+    return lines;
+  }
+
+  if (rec.account && typeof rec.account === "object" && !Array.isArray(rec.account)) {
+    const a = rec.account as Record<string, unknown>;
+    const bal = a.balance as { hbar?: number; tinybars?: number } | undefined;
+    lines.push(`account    ${a.account ?? "?"}`);
+    if (bal?.hbar !== undefined) lines.push(`balance    ${bal.hbar} HBAR  (${bal.tinybars} tinybars)`);
+    if (a.evmAddress) lines.push(`evm        ${a.evmAddress}`);
+    if (a.memo !== undefined && a.memo !== "") lines.push(`memo       ${a.memo}`);
+    lines.push("source     Hedera Mirror Node");
+    return lines;
+  }
+
+  if (Array.isArray(rec.transactions)) {
+    const txs = rec.transactions as Array<Record<string, unknown>>;
+    lines.push(`account    ${rec.account ?? "?"}`);
+    lines.push(`rows       ${txs.length} transactions  (asked limit=${rec.limit ?? "?"})`);
+    for (const tx of txs.slice(0, 5)) {
+      lines.push(`  • ${tx.transactionId ?? "?"}   ${tx.name ?? "?"}   ${tx.result ?? "?"}`);
+    }
+    if (txs.length > 5) lines.push(`  … ${txs.length - 5} more`);
+    lines.push("source     Hedera Mirror Node");
+    return lines;
+  }
+
+  if (typeof rec.stdout === "string" || rec.provider) {
+    lines.push(`provider   ${rec.provider ?? "?"}`);
+    lines.push(`status     ${rec.status ?? "?"}   exit ${rec.exitCode ?? "n/a"}   ${rec.timeoutSeconds ?? "?"}s`);
+    const out = String(rec.stdout ?? "").replace(/\n$/, "");
+    const err = String(rec.stderr ?? "").replace(/\n$/, "");
+    lines.push("stdout");
+    if (out.length) {
+      for (const line of out.split("\n")) lines.push(`             ${line}`);
+    } else {
+      lines.push("             (empty)");
+    }
+    if (err) {
+      lines.push("stderr");
+      for (const line of err.split("\n")) lines.push(`             ${line}`);
+    }
+    return lines;
+  }
+
+  lines.push(JSON.stringify(body));
+  return lines;
+}
+
+function printPaid(status: number, body: unknown, settled: { transaction?: string } | null): void {
+  console.log("\n3. YOU PAID");
+  if (settled?.transaction) {
+    console.log(`   settle    ${settled.transaction}`);
+    console.log(`   HashScan  ${hashscanTxUrl(cfg.network, settled.transaction)}`);
+  } else {
+    console.log("   settle    (no PAYMENT-RESPONSE — not charged, or handler failed first)");
+  }
+  console.log(`   http      ${status}`);
+
+  console.log("\n4. YOU GOT");
+  for (const line of highlightOutput(body)) {
+    console.log(`   ${line}`);
+  }
 }
 
 function parseTinybars(amount: string | undefined): bigint | undefined {
@@ -196,38 +287,32 @@ async function drain(response: Response): Promise<void> {
 }
 
 async function unpaidQuote(target: Target): Promise<string | undefined> {
+  printAsk(target);
   const url = `${cfg.baseUrl}${target.path}`;
-  console.log(`\n→ unpaid ${target.label}`);
-  console.log(`  ${url}`);
   const response = await loggingFetch(url, target.init ?? { method: "GET" });
   const quoted = quoteFrom402(response);
   await drain(response);
+  console.log("\n   (stopped here — unpaid, so no output body)");
   return quoted?.amount;
 }
 
-async function payOnce(target: Target): Promise<void> {
-  const url = `${cfg.baseUrl}${target.path}`;
-  console.log(`\n→ ${target.label}`);
-  console.log(`  ${url}`);
-
-  const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
+async function readJsonBody(response: Response): Promise<unknown> {
   const bodyText = await response.text();
-  let body: unknown = bodyText;
   try {
-    body = JSON.parse(bodyText);
+    return JSON.parse(bodyText) as unknown;
   } catch {
-    /* keep raw */
+    return bodyText;
   }
+}
+
+async function payOnce(target: Target): Promise<void> {
+  printAsk(target);
+  const url = `${cfg.baseUrl}${target.path}`;
+  const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
+  const body = await readJsonBody(response);
 
   const settled = settlementOf(response);
-  if (settled?.transaction) {
-    console.log(`  settle tx  ${settled.transaction}`);
-    console.log(`  HashScan   ${hashscanTxUrl(cfg.network, settled.transaction)}`);
-  } else {
-    console.log("  (no PAYMENT-RESPONSE / settlement header)");
-  }
-
-  console.log("  body", JSON.stringify(body, null, 2));
+  printPaid(response.status, body, settled);
 
   if (!response.ok) {
     throw new Error(`Paid request failed: HTTP ${response.status}`);
@@ -251,28 +336,13 @@ async function payIfWithinBudget(
     return { remaining, skipped };
   }
 
+  printAsk(target);
+  console.log(`   budget    ${amount} tinybars quoted, ${remaining} remaining`);
   const url = `${cfg.baseUrl}${target.path}`;
-  console.log(`\n→ pay ${target.label}`);
-  console.log(`  ${url}`);
-  console.log(`  quote ${amount} tinybars ≤ remaining ${remaining}`);
-
   const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
-  const bodyText = await response.text();
-  let body: unknown = bodyText;
-  try {
-    body = JSON.parse(bodyText);
-  } catch {
-    /* keep raw */
-  }
-
+  const body = await readJsonBody(response);
   const settled = settlementOf(response);
-  if (settled?.transaction) {
-    console.log(`  settle tx  ${settled.transaction}`);
-    console.log(`  HashScan   ${hashscanTxUrl(cfg.network, settled.transaction)}`);
-  } else {
-    console.log("  (no PAYMENT-RESPONSE / settlement header)");
-  }
-  console.log("  body", previewJson(body));
+  printPaid(response.status, body, settled);
 
   if (!response.ok) {
     throw new Error(`Paid request failed: HTTP ${response.status}`);
@@ -282,7 +352,8 @@ async function payIfWithinBudget(
 }
 
 function printRecap(budget: bigint, cheap: DemoLegResult, expensive: DemoLegResult): void {
-  console.log("\n=== recap ===");
+  console.log("\n────────────────────────────────────────");
+  console.log("RECAP  (cheap vs expensive lookup)");
   console.log(`budget     ${budget} tinybars (${Number(budget) / 1e8} HBAR)`);
   for (const leg of [cheap, expensive]) {
     console.log(leg.label);
@@ -306,7 +377,7 @@ async function runDemo(accountId: string): Promise<void> {
   let remaining = budgetTinybars;
 
   console.log(`budget     ${budgetTinybars} tinybars (${Number(budgetTinybars) / 1e8} HBAR)`);
-  console.log("unpaid quotes first (expect 100000 vs 400000 tinybars)");
+  console.log("unpaid quotes first — same account, 1 unit vs 4 units");
 
   const cheapQuote = await unpaidQuote(cheap);
   const expensiveQuote = await unpaidQuote(expensive);
@@ -336,7 +407,8 @@ async function runDemo(accountId: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  console.log(`Fare payer ${cfg.payerId} on ${cfg.caipNetwork}`);
+  console.log("Fare — two tickets: Hedera lookups, AWS Lambda jobs");
+  console.log(`Payer      ${cfg.payerId}  (${cfg.caipNetwork})`);
   console.log(`Merchant   ${hashscanAccountUrl(cfg.network, cfg.operatorId ?? "(set HEDERA_OPERATOR_ID)")}`);
 
   const argv = process.argv.slice(2);
