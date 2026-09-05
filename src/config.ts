@@ -1,4 +1,5 @@
 import { config as loadDotenv } from "dotenv";
+import { isHederaAccountId } from "./account-id.js";
 
 loadDotenv({ quiet: true });
 
@@ -15,12 +16,25 @@ const DEFAULT_MIRROR: Record<HederaNetworkName, string> = {
   mainnet: "https://mainnet.mirrornode.hedera.com",
 };
 
-function required(name: string, value: string | undefined): string {
+function optional(value: string | undefined): string | undefined {
   const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function required(name: string, value: string | undefined): string {
+  const trimmed = optional(value);
   if (!trimmed) {
     throw new Error(`Missing required env ${name}`);
   }
   return trimmed;
+}
+
+function requiredAccount(name: string, value: string | undefined): string {
+  const id = required(name, value);
+  if (!isHederaAccountId(id)) {
+    throw new Error(`${name} must be shard.realm.num`);
+  }
+  return id;
 }
 
 function networkName(): HederaNetworkName {
@@ -65,18 +79,18 @@ export function loadServerConfig(): ServerConfig {
   return {
     network,
     caipNetwork,
-    operatorId: required("HEDERA_OPERATOR_ID", process.env.HEDERA_OPERATOR_ID),
-    operatorKey: process.env.HEDERA_OPERATOR_KEY?.trim() || undefined,
-    facilitatorUrl: process.env.BLOCKY402_FACILITATOR_URL?.trim() || DEFAULT_FACILITATOR[network],
-    mirrorNodeUrl: (process.env.MIRROR_NODE_URL?.trim() || DEFAULT_MIRROR[network]).replace(/\/$/, ""),
-    hcsTopicId: process.env.HCS_TOPIC_ID?.trim() || undefined,
+    operatorId: requiredAccount("HEDERA_OPERATOR_ID", process.env.HEDERA_OPERATOR_ID),
+    operatorKey: optional(process.env.HEDERA_OPERATOR_KEY),
+    facilitatorUrl: optional(process.env.BLOCKY402_FACILITATOR_URL) || DEFAULT_FACILITATOR[network],
+    mirrorNodeUrl: (optional(process.env.MIRROR_NODE_URL) || DEFAULT_MIRROR[network]).replace(/\/$/, ""),
+    hcsTopicId: optional(process.env.HCS_TOPIC_ID),
     port: Number.parseInt(process.env.PORT ?? "4021", 10) || 4021,
-    host: process.env.HOST?.trim() || "0.0.0.0",
-    jobLambdaArn: process.env.AWS_SANDBOX_LAMBDA_ARN?.trim() || undefined,
-    jobLocal: process.env.FARE_JOB_LOCAL === "1",
-    awsRegion: process.env.AWS_REGION?.trim() || undefined,
-    awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID?.trim() || undefined,
-    awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY?.trim() || undefined,
+    host: optional(process.env.HOST) || "0.0.0.0",
+    jobLambdaArn: optional(process.env.AWS_SANDBOX_LAMBDA_ARN),
+    jobLocal: process.env.FARE_JOB_LOCAL?.trim() === "1",
+    awsRegion: optional(process.env.AWS_REGION),
+    awsAccessKeyId: optional(process.env.AWS_ACCESS_KEY_ID),
+    awsSecretAccessKey: optional(process.env.AWS_SECRET_ACCESS_KEY),
   };
 }
 
@@ -85,9 +99,9 @@ export function loadClientConfig(): ClientConfig {
   return {
     network,
     caipNetwork,
-    operatorId: process.env.HEDERA_OPERATOR_ID?.trim() || undefined,
-    payerId: required("HEDERA_PAYER_ID", process.env.HEDERA_PAYER_ID),
+    operatorId: optional(process.env.HEDERA_OPERATOR_ID),
+    payerId: requiredAccount("HEDERA_PAYER_ID", process.env.HEDERA_PAYER_ID),
     payerKey: required("HEDERA_PAYER_KEY", process.env.HEDERA_PAYER_KEY),
-    baseUrl: (process.env.FARE_BASE_URL?.trim() || `http://localhost:${process.env.PORT ?? "4021"}`).replace(/\/$/, ""),
+    baseUrl: (optional(process.env.FARE_BASE_URL) || `http://localhost:${process.env.PORT ?? "4021"}`).replace(/\/$/, ""),
   };
 }

@@ -44,19 +44,29 @@ export class JobError extends Error {
   }
 }
 
-function lambdaConfigured(cfg: ServerConfig): boolean {
-  return Boolean(cfg.jobLambdaArn && cfg.awsRegion && cfg.awsAccessKeyId && cfg.awsSecretAccessKey);
+type LambdaJobConfig = {
+  functionName: string;
+  region: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+};
+
+function lambdaJobConfig(cfg: ServerConfig): LambdaJobConfig | null {
+  const { jobLambdaArn, awsRegion, awsAccessKeyId, awsSecretAccessKey } = cfg;
+  if (!jobLambdaArn || !awsRegion || !awsAccessKeyId || !awsSecretAccessKey) return null;
+  return {
+    functionName: jobLambdaArn,
+    region: awsRegion,
+    accessKeyId: awsAccessKeyId,
+    secretAccessKey: awsSecretAccessKey,
+  };
 }
 
 /** Lambda wins if both backends are set — same order as {@link runJob}. */
 export function jobBackend(cfg: ServerConfig): JobBackend | null {
-  if (lambdaConfigured(cfg)) return "aws-lambda";
+  if (lambdaJobConfig(cfg)) return "aws-lambda";
   if (cfg.jobLocal) return "local";
   return null;
-}
-
-export function jobsEnabled(cfg: ServerConfig): boolean {
-  return jobBackend(cfg) !== null;
 }
 
 export function timeoutFromBody(body: unknown): number {
@@ -109,18 +119,21 @@ export async function runJob(cfg: ServerConfig, request: JobRequest): Promise<Jo
 }
 
 async function invokeLambda(cfg: ServerConfig, request: JobRequest): Promise<JobResult> {
+  const lambda = lambdaJobConfig(cfg);
+  if (!lambda) throw new JobError("jobs_not_configured", 503);
+
   const client = new LambdaClient({
-    region: cfg.awsRegion,
+    region: lambda.region,
     credentials: {
-      accessKeyId: cfg.awsAccessKeyId!,
-      secretAccessKey: cfg.awsSecretAccessKey!,
+      accessKeyId: lambda.accessKeyId,
+      secretAccessKey: lambda.secretAccessKey,
     },
   });
 
   try {
     const response = await client.send(
       new InvokeCommand({
-        FunctionName: cfg.jobLambdaArn,
+        FunctionName: lambda.functionName,
         InvocationType: "RequestResponse",
         Payload: Buffer.from(
           JSON.stringify({

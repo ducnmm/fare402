@@ -16,7 +16,7 @@
     "pay:live": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts",
     "pay:job": "FARE_BASE_URL=https://fare-production.up.railway.app tsx scripts/pay-once.ts job",
     "hcs:topic": "tsx scripts/create-topic.ts",
-    "test": "tsx --test src/price.test.ts src/hashscan.test.ts src/job.test.ts",
+    "test": "tsx --test src/*.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

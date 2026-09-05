@@ -55,6 +55,8 @@ cp .env.example .env   # HEDERA_OPERATOR_* / HEDERA_PAYER_*  (0x… ECDSA, not E
 npm i && npm start
 ```
 
+Keys stay in `.env` (gitignored). Do not commit them.
+
 Jobs: set `AWS_SANDBOX_LAMBDA_ARN` + AWS keys, or `FARE_JOB_LOCAL=1` (dev only). Unset → `503`, never 402.
 
 HCS: `npm run hcs:topic` → put `HCS_TOPIC_ID` in `.env`. Failed HCS does not roll back payment.

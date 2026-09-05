@@ -44,6 +44,12 @@ test("jobBackend prefers Lambda over local", () => {
     "aws-lambda",
   );
   assert.equal(jobBackend({} as ServerConfig), null);
+  assert.equal(
+    jobBackend({
+      jobLambdaArn: "arn:aws:lambda:ap-southeast-1:1:function:fare-job-runner",
+    } as ServerConfig),
+    null,
+  );
 });
 
 test("local job returns stdout", async () => {

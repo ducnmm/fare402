@@ -5,30 +5,12 @@
  *   npm run try -- local     # http://localhost:4021
  *   npm run try -- https://… # any origin
  */
+import { quoteFrom402 } from "../src/payment-required.js";
+
 const LIVE = "https://fare-production.up.railway.app";
 
 const arg = process.argv[2]?.trim();
 const baseUrl = (arg === "local" ? "http://localhost:4021" : arg || LIVE).replace(/\/$/, "");
-
-type Quote = {
-  amount?: string;
-  asset?: string;
-  network?: string;
-  payTo?: string;
-};
-
-function quoteFrom402(response: Response): Quote | null {
-  const header = response.headers.get("PAYMENT-REQUIRED") ?? response.headers.get("payment-required");
-  if (!header) return null;
-  try {
-    const json = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as {
-      accepts?: Array<{ amount?: string; asset?: string; network?: string; payTo?: string }>;
-    };
-    return json.accepts?.[0] ?? null;
-  } catch {
-    return null;
-  }
-}
 
 async function hit(label: string, meaning: string, path: string, init?: RequestInit): Promise<void> {
   const url = `${baseUrl}${path}`;

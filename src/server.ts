@@ -7,7 +7,7 @@ import { isHederaAccountId } from "./account-id.js";
 import { loadServerConfig } from "./config.js";
 import { appendAudit, closeHcs, hcsEnabled } from "./hcs.js";
 import { hashscanTopicUrl, hashscanTxUrl } from "./hashscan.js";
-import { JobError, jobBackend, jobsEnabled, parseJobRequest, runJob, timeoutFromBody } from "./job.js";
+import { JobError, jobBackend, parseJobRequest, runJob, timeoutFromBody } from "./job.js";
 import { fetchAccountSummary, fetchAccountTransactions, MirrorError } from "./mirror.js";
 import {
   hbarPrice,
@@ -24,7 +24,6 @@ import {
 
 const cfg = loadServerConfig();
 const hcsOn = hcsEnabled(cfg);
-const jobsOn = jobsEnabled(cfg);
 const jobsProvider = jobBackend(cfg);
 
 const facilitatorClient = new HTTPFacilitatorClient({ url: cfg.facilitatorUrl });
@@ -193,6 +192,16 @@ app.post("/v1/jobs", async (req, res) => {
   }
 });
 
+function sendMethodNotAllowed(req: express.Request, res: express.Response, allow: string): void {
+  res.set("Allow", allow);
+  res.status(405);
+  if (req.method === "HEAD") {
+    res.end();
+    return;
+  }
+  res.json({ error: "method_not_allowed" });
+}
+
 function guardPaidPath(req: express.Request, res: express.Response, next: express.NextFunction): void {
   if (!req.path.startsWith("/v1")) {
     next();
@@ -201,16 +210,10 @@ function guardPaidPath(req: express.Request, res: express.Response, next: expres
 
   if (req.path === "/v1/jobs") {
     if (req.method !== "POST") {
-      res.set("Allow", "POST");
-      res.status(405);
-      if (req.method === "HEAD") {
-        res.end();
-        return;
-      }
-      res.json({ error: "method_not_allowed" });
+      sendMethodNotAllowed(req, res, "POST");
       return;
     }
-    if (!jobsOn) {
+    if (!jobsProvider) {
       res.status(503).json({ error: "jobs_not_configured" });
       return;
     }
@@ -230,13 +233,7 @@ function guardPaidPath(req: express.Request, res: express.Response, next: expres
 
   // x402 only matches GET /...; Express maps HEAD onto GET handlers, so unpaid HEAD would 200.
   if (req.method !== "GET") {
-    res.set("Allow", "GET");
-    res.status(405);
-    if (req.method === "HEAD") {
-      res.end();
-      return;
-    }
-    res.json({ error: "method_not_allowed" });
+    sendMethodNotAllowed(req, res, "GET");
     return;
   }
 

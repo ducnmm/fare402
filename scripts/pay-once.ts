@@ -18,6 +18,7 @@ import { ExactHederaScheme } from "@x402/hedera/exact/client";
 import { createClientHederaSigner, PrivateKey } from "@x402/hedera";
 import { loadClientConfig } from "../src/config.js";
 import { hashscanAccountUrl, hashscanTxUrl } from "../src/hashscan.js";
+import { quoteFrom402 } from "../src/payment-required.js";
 import { HBAR_ASSET } from "../src/price.js";
 
 const DEFAULT_BUDGET_TINYBARS = 1_000_000n;
@@ -63,14 +64,6 @@ const loggingFetch: typeof fetch = async (input, init) => {
 const fetchWithPayment = wrapFetchWithPayment(loggingFetch, client);
 
 type Target = { label: string; path: string; init?: RequestInit; ask?: string };
-
-type Quote = {
-  amount?: string;
-  asset?: string;
-  network?: string;
-  payTo?: string;
-  feePayer?: string;
-};
 
 type DemoLegResult = {
   label: string;
@@ -150,33 +143,6 @@ function demoTargets(accountId: string): { cheap: Target; expensive: Target } {
       ask: `last 25 transactions for ${accountId} — 4 units`,
     },
   };
-}
-
-function quoteFrom402(response: Response): Quote | null {
-  const header = response.headers.get("PAYMENT-REQUIRED") ?? response.headers.get("payment-required");
-  if (!header) return null;
-  try {
-    const json = JSON.parse(Buffer.from(header, "base64").toString("utf8")) as {
-      accepts?: Array<{
-        amount?: string;
-        asset?: string;
-        network?: string;
-        payTo?: string;
-        extra?: { feePayer?: string };
-      }>;
-    };
-    const first = json.accepts?.[0];
-    if (!first) return null;
-    return {
-      amount: first.amount,
-      asset: first.asset,
-      network: first.network,
-      payTo: first.payTo,
-      feePayer: first.extra?.feePayer,
-    };
-  } catch {
-    return null;
-  }
 }
 
 function settlementOf(response: Response): { transaction?: string; payer?: string; success?: boolean } | null {
@@ -305,18 +271,25 @@ async function readJsonBody(response: Response): Promise<unknown> {
   }
 }
 
-async function payOnce(target: Target): Promise<void> {
-  printAsk(target);
+async function payAndPrint(target: Target): Promise<{ settled: ReturnType<typeof settlementOf>; ok: boolean; status: number }> {
   const url = `${cfg.baseUrl}${target.path}`;
   const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
   const body = await readJsonBody(response);
-
   const settled = settlementOf(response);
   printPaid(response.status, body, settled);
+  return { settled, ok: response.ok, status: response.status };
+}
 
-  if (!response.ok) {
-    throw new Error(`Paid request failed: HTTP ${response.status}`);
+function assertPaidOk(ok: boolean, status: number): void {
+  if (!ok) {
+    throw new Error(`Paid request failed: HTTP ${status}`);
   }
+}
+
+async function payOnce(target: Target): Promise<void> {
+  printAsk(target);
+  const paid = await payAndPrint(target);
+  assertPaidOk(paid.ok, paid.status);
 }
 
 async function payIfWithinBudget(
@@ -338,17 +311,10 @@ async function payIfWithinBudget(
 
   printAsk(target);
   console.log(`   budget    ${amount} tinybars quoted, ${remaining} remaining`);
-  const url = `${cfg.baseUrl}${target.path}`;
-  const response = await fetchWithPayment(url, target.init ?? { method: "GET" });
-  const body = await readJsonBody(response);
-  const settled = settlementOf(response);
-  printPaid(response.status, body, settled);
+  const paid = await payAndPrint(target);
+  assertPaidOk(paid.ok, paid.status);
 
-  if (!response.ok) {
-    throw new Error(`Paid request failed: HTTP ${response.status}`);
-  }
-
-  return { remaining: remaining - amount, settleTx: settled?.transaction };
+  return { remaining: remaining - amount, settleTx: paid.settled?.transaction };
 }
 
 function printRecap(budget: bigint, cheap: DemoLegResult, expensive: DemoLegResult): void {

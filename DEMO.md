@@ -4,7 +4,7 @@
 
 Open beforehand:
 
-- terminal in `/Users/ducnmm/Documents/ducnmm/fare`
+- terminal in the fare repo
 - https://fare-production.up.railway.app/health
 - https://hashscan.io/testnet/account/0.0.10119186
 - https://hashscan.io/testnet/topic/0.0.10320508

@@ -94,7 +94,7 @@ async function mirrorGet<T>(baseUrl: string, path: string, timeoutMs = MIRROR_TI
     }
   }
 
-  throw lastErr;
+  throw lastErr instanceof Error ? lastErr : new MirrorError("mirror_node_unavailable", 502);
 }
 
 export async function fetchAccountSummary(baseUrl: string, accountId: string): Promise<MirrorAccount> {
