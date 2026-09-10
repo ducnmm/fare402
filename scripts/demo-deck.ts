@@ -37,19 +37,19 @@ const JOBS: Record<string, Job> = {
     steps: [{ argv: ["curl", "-si", `${LIVE}/v1/ping`] }],
   },
   account: {
-    label: "fare account 0.0.98",
+    label: "./fare account 0.0.98",
     steps: [fare(["account", "0.0.98"])],
   },
   txs: {
-    label: "fare txs 0.0.98 25",
+    label: "./fare txs 0.0.98 25",
     steps: [fare(["txs", "0.0.98", "25"])],
   },
   job: {
-    label: "fare job 10 'console.log(1+1)'",
+    label: "./fare job 10 'console.log(1+1)'",
     steps: [fare(["job", "10", "console.log(1+1)"])],
   },
   hcs: {
-    label: "fare topic",
+    label: "./fare topic",
     steps: [fare(["topic"])],
   },
 };

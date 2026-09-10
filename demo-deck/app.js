@@ -48,9 +48,9 @@ const slides = [
     kicker: "live",
     title: "Pay for a lookup",
     say: "0.001 HBAR → live balance of Hedera account 0.0.98.",
-    points: ["YOU ASKED → QUOTED → PAID → YOU GOT", "Open the HashScan link"],
+    points: ["Pays 0.001 HBAR, then prints the balance", "Click the HashScan link in the terminal"],
     run: "account",
-    runLabel: "fare account 0.0.98",
+    runLabel: "./fare account 0.0.98",
   },
   {
     id: "txs",
@@ -59,7 +59,7 @@ const slides = [
     say: "Same account, 25 transactions. 0.004 HBAR — four times the lookup. Wait.",
     points: ["YOU GOT should list 25 rows"],
     run: "txs",
-    runLabel: "fare txs 0.0.98 25",
+    runLabel: "./fare txs 0.0.98 25",
   },
   {
     id: "job",
@@ -68,7 +68,7 @@ const slides = [
     say: "0.002 HBAR. Lambda runs the script. stdout is 2.",
     points: ["provider aws-lambda", "stdout 2"],
     run: "job",
-    runLabel: "fare job 10 'console.log(1+1)'",
+    runLabel: "./fare job 10 'console.log(1+1)'",
   },
   {
     id: "hcs",
@@ -77,7 +77,7 @@ const slides = [
     say: "Each payment also lands on this HCS topic. That's it.",
     points: ["Newest messages on topic 0.0.10320508"],
     run: "hcs",
-    runLabel: "fare topic",
+    runLabel: "./fare topic",
   },
 ];
 
