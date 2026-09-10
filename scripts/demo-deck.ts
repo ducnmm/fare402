@@ -39,8 +39,8 @@ const JOBS: Record<string, Job> = {
     steps: [pay(["GET", "/v1/accounts/0.0.98"])],
   },
   txs: {
-    label: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'",
-    steps: [pay(["GET", "/v1/accounts/0.0.98/transactions?limit=25"])],
+    label: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=50'",
+    steps: [pay(["GET", "/v1/accounts/0.0.98/transactions?limit=50"])],
   },
   job: {
     label: `npx tsx scripts/pay.ts POST /v1/jobs '{"script":"console.log(1+1)","timeoutSeconds":10}'`,
