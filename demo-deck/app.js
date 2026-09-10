@@ -12,12 +12,12 @@ const slides = [
   {
     id: "tickets",
     kicker: "what you buy",
-    title: "Two tickets",
-    say: "Hedera lookups, and a Node job on AWS Lambda.",
+    title: "Two paid APIs",
+    say: "Pay to read a Hedera account, or pay to run a Node script.",
     points: [
-      "Lookups — account balance and recent transactions",
-      "Jobs — run a short script, get stdout",
-      "Bigger ask → higher fare",
+      "Read — live balance and transactions",
+      "Run — AWS Lambda, you get stdout",
+      "Ask for more, pay more HBAR",
     ],
     run: null,
   },
