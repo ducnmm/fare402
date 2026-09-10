@@ -24,9 +24,14 @@ const slides = [
   {
     id: "pay",
     kicker: "how it pays",
-    title: "No pay, no data",
-    say: "You hit a route. Merchant answers HTTP 402 with a quote. You pay. You get JSON.",
-    points: ["1 unit = 0.001 HBAR", "x402 on Hedera · Blocky402 is the fee payer"],
+    title: "Pay first",
+    say: "Call without paying and the API refuses. Pay the quoted HBAR, then it returns the data.",
+    points: [
+      "1. You call the API",
+      "2. It answers 402 + a price (cheapest: 0.001 HBAR)",
+      "3. You pay that HBAR on Hedera",
+      "4. You get the JSON",
+    ],
     run: null,
   },
   {
