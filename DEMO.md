@@ -6,9 +6,9 @@
 npm run demo:deck
 ```
 
-Opens `http://127.0.0.1:4040`. Fullscreen (`F`). First three slides explain Fare — no terminal. Then **Enter** pastes a short command (`fare account 0.0.98`). **Space** is next slide only. `←` `→` skip. `R` reruns.
+Opens `http://127.0.0.1:4040`. Fullscreen (`F`). Opening slides explain Fare, then show `scripts/pay.ts` (~40 lines). **Enter** runs that script. **Space** is next slide only.
 
-Off camera, once: `./fare ping`. Start recording on slide 1 **Fare**.
+Off camera, once: `npx tsx scripts/pay.ts GET /v1/ping`. Start recording on slide 1 **Fare**.
 
 Hits live Railway (`FARE_BASE_URL` is set by the deck). HashScan URLs in the terminal become links under it.
 

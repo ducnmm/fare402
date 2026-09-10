@@ -25,10 +25,8 @@ const TSX = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 type Step = { argv: string[] };
 type Job = { label: string; steps: Step[] };
 
-const FARE = join(ROOT, "fare");
-
-function fare(args: string[]): Step {
-  return { argv: [FARE, ...args] };
+function pay(args: string[]): Step {
+  return { argv: [process.execPath, TSX, "scripts/pay.ts", ...args] };
 }
 
 const JOBS: Record<string, Job> = {
@@ -37,20 +35,28 @@ const JOBS: Record<string, Job> = {
     steps: [{ argv: ["curl", "-si", `${LIVE}/v1/ping`] }],
   },
   account: {
-    label: "./fare account 0.0.98",
-    steps: [fare(["account", "0.0.98"])],
+    label: "npx tsx scripts/pay.ts GET /v1/accounts/0.0.98",
+    steps: [pay(["GET", "/v1/accounts/0.0.98"])],
   },
   txs: {
-    label: "./fare txs 0.0.98 25",
-    steps: [fare(["txs", "0.0.98", "25"])],
+    label: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'",
+    steps: [pay(["GET", "/v1/accounts/0.0.98/transactions?limit=25"])],
   },
   job: {
-    label: "./fare job 10 'console.log(1+1)'",
-    steps: [fare(["job", "10", "console.log(1+1)"])],
+    label: `npx tsx scripts/pay.ts POST /v1/jobs '{"script":"console.log(1+1)","timeoutSeconds":10}'`,
+    steps: [pay(["POST", "/v1/jobs", '{"script":"console.log(1+1)","timeoutSeconds":10}'])],
   },
   hcs: {
-    label: "./fare topic",
-    steps: [fare(["topic"])],
+    label: "curl topic 0.0.10320508",
+    steps: [
+      {
+        argv: [
+          "curl",
+          "-sS",
+          "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.10320508/messages?limit=5&order=desc",
+        ],
+      },
+    ],
   },
 };
 
@@ -106,7 +112,7 @@ async function runJob(id: string, res: ServerResponse): Promise<void> {
     sendJson(res, 404, { error: "unknown_job" });
     return;
   }
-  if (!existsSync(TSX) || !existsSync(FARE)) {
+  if (!existsSync(TSX)) {
     sendJson(res, 500, { error: "tsx_missing" });
     return;
   }
@@ -200,6 +206,12 @@ const server = createServer((req, res) => {
   const url = new URL(req.url ?? "/", `http://${HOST}:${PORT}`);
   void (async () => {
     try {
+      if (req.method === "GET" && url.pathname === "/client-src") {
+        const src = await readFile(join(ROOT, "scripts/pay.ts"), "utf8");
+        res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
+        res.end(src);
+        return;
+      }
       if (req.method === "GET" && url.pathname === "/deck-health") {
         sendJson(res, 200, { ok: true, live: LIVE, jobs: Object.keys(JOBS) });
         return;

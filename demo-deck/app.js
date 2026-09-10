@@ -35,6 +35,15 @@ const slides = [
     run: null,
   },
   {
+    id: "script",
+    kicker: "the client",
+    title: "This is the script",
+    say: "About 40 lines. It handles 402, pays HBAR, prints JSON.",
+    points: [],
+    run: null,
+    showScript: true,
+  },
+  {
     id: "ping402",
     kicker: "live",
     title: "Ask without paying",
@@ -50,7 +59,7 @@ const slides = [
     say: "0.001 HBAR → live balance of Hedera account 0.0.98.",
     points: ["Pays 0.001 HBAR, then prints the balance", "Click the HashScan link in the terminal"],
     run: "account",
-    runLabel: "./fare account 0.0.98",
+    runLabel: "npx tsx scripts/pay.ts GET /v1/accounts/0.0.98",
   },
   {
     id: "txs",
@@ -59,7 +68,7 @@ const slides = [
     say: "Same account, 25 transactions. 0.004 HBAR — four times the lookup. Wait.",
     points: ["YOU GOT should list 25 rows"],
     run: "txs",
-    runLabel: "./fare txs 0.0.98 25",
+    runLabel: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'",
   },
   {
     id: "job",
@@ -68,7 +77,7 @@ const slides = [
     say: "0.002 HBAR. Lambda runs the script. stdout is 2.",
     points: ["provider aws-lambda", "stdout 2"],
     run: "job",
-    runLabel: "./fare job 10 'console.log(1+1)'",
+    runLabel: "npx tsx scripts/pay.ts POST /v1/jobs '{\"script\":\"console.log(1+1)\",\"timeoutSeconds\":10}'",
   },
   {
     id: "hcs",
@@ -77,7 +86,7 @@ const slides = [
     say: "Each payment also lands on this HCS topic. That's it.",
     points: ["Newest messages on topic 0.0.10320508"],
     run: "hcs",
-    runLabel: "./fare topic",
+    runLabel: "curl topic 0.0.10320508",
   },
 ];
 
@@ -111,6 +120,10 @@ function renderSlide() {
   } else {
     badge.hidden = true;
   }
+
+  const source = document.getElementById("source");
+  source.hidden = !s.showScript;
+  if (s.showScript) source.scrollTop = 0;
 
   const ul = document.getElementById("points");
   ul.replaceChildren();
@@ -271,4 +284,12 @@ document.getElementById("runBtn").addEventListener("click", (e) => {
 });
 
 resetTerm(slides[0].run ? "Enter to run" : "");
+fetch("/client-src")
+  .then((r) => r.text())
+  .then((text) => {
+    document.getElementById("source").textContent = text;
+  })
+  .catch(() => {
+    document.getElementById("source").textContent = "(could not load scripts/pay.ts)";
+  });
 renderSlide();

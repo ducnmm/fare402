@@ -76,6 +76,26 @@ body {
   max-width: 36ch;
 }
 
+.app.talk .source {
+  width: min(68ch, 90vw);
+  max-height: min(62vh, 38rem);
+}
+
+.source {
+  margin: 0;
+  padding: 16px 18px;
+  overflow: auto;
+  background: #f7faf2;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: 11.5px/1.45 "SF Mono", Menlo, Monaco, ui-monospace, monospace;
+  color: #1c2118;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: 0 10px 30px rgba(30, 36, 42, 0.08);
+}
+
 .slide {
   position: relative;
   padding: 72px 36px 64px;
