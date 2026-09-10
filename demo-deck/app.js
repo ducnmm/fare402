@@ -75,6 +75,7 @@ let index = 0;
 let ran = false;
 let busy = false;
 let abort = null;
+let runId = 0;
 
 function setState(name, cls) {
   termState.textContent = name;
@@ -114,9 +115,18 @@ function renderSlide() {
     cmd.textContent = "";
   }
 
-  if (busy) hint.innerHTML = "Running… wait, then <kbd>Space</kbd>";
-  else if (s.run && !ran) hint.innerHTML = "Press <kbd>Space</kbd> to run.";
-  else if (index < slides.length - 1) hint.innerHTML = "Press <kbd>Space</kbd> for the next slide.";
+  const runBtn = document.getElementById("runBtn");
+  if (s.run) {
+    runBtn.hidden = false;
+    runBtn.disabled = busy;
+    runBtn.textContent = busy ? "Running…" : ran ? "Run again" : "Run";
+  } else {
+    runBtn.hidden = true;
+  }
+
+  if (busy) hint.innerHTML = "Running… wait. <kbd>Space</kbd> is next slide only.";
+  else if (s.run && !ran) hint.innerHTML = "<kbd>Enter</kbd> runs the terminal. <kbd>Space</kbd> is next slide.";
+  else if (index < slides.length - 1) hint.innerHTML = "<kbd>Space</kbd> next slide.";
   else hint.innerHTML = "Done. Stop recording.";
 }
 
@@ -137,6 +147,7 @@ function collectLinks(text) {
 async function runCurrent() {
   const s = slides[index];
   if (!s.run || busy) return;
+  const thisRun = ++runId;
   busy = true;
   ran = true;
   abort = new AbortController();
@@ -188,36 +199,41 @@ async function runCurrent() {
       setState("error", "bad");
     }
   } finally {
+    if (thisRun !== runId) return;
     busy = false;
     abort = null;
     renderSlide();
   }
 }
 
+function resetTerm(message) {
+  term.textContent = message;
+  links.replaceChildren();
+  setState("idle", "");
+}
+
 function go(delta) {
   const next = index + delta;
   if (next < 0 || next >= slides.length) return;
+  runId += 1;
   if (busy && abort) abort.abort();
+  busy = false;
+  abort = null;
   index = next;
   ran = false;
+  const s = slides[index];
+  resetTerm(s.run ? "idle — press Enter to run" : "");
   renderSlide();
 }
 
-function onSpace() {
-  const s = slides[index];
-  if (busy) return;
-  if (s.run && !ran) {
-    void runCurrent();
-    return;
-  }
-  go(1);
-}
-
 document.addEventListener("keydown", (e) => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (e.key === " " || e.code === "Space") {
+  if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Enter") {
     e.preventDefault();
-    onSpace();
+    void runCurrent();
+  } else if (e.key === " " || e.code === "Space") {
+    e.preventDefault();
+    go(1);
   } else if (e.key === "ArrowRight" || e.key === "n") go(1);
   else if (e.key === "ArrowLeft" || e.key === "p") go(-1);
   else if (e.key === "r" || e.key === "R") {
@@ -229,5 +245,11 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-document.getElementById("slide").addEventListener("click", onSpace);
+document.getElementById("runBtn").addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  void runCurrent();
+});
+
+resetTerm(slides[0].run ? "idle — press Enter to run" : "");
 renderSlide();

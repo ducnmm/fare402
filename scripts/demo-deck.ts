@@ -244,7 +244,7 @@ server.listen(PORT, HOST, () => {
   const origin = `http://${HOST}:${PORT}`;
   console.log(`Fare demo deck  ${origin}`);
   console.log(`  live merchant ${LIVE}`);
-  console.log("  Space = run / next. Keys stay on this machine.");
+  console.log("  Enter = run. Space = next slide. Keys stay on this machine.");
   if (process.env.DEMO_DECK_NO_OPEN !== "1" && process.platform === "darwin") {
     spawn("open", [origin], { stdio: "ignore", detached: true }).unref();
   }

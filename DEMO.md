@@ -6,7 +6,7 @@
 npm run demo:deck
 ```
 
-Opens `http://127.0.0.1:4040`. Fullscreen (`F`). **Space** runs the command on the slide; Space again goes next. `←` `→` skip. `R` reruns.
+Opens `http://127.0.0.1:4040`. Fullscreen (`F`). **Enter** (or Run) starts the terminal. **Space** is next slide only — it never runs a command. `←` `→` skip. `R` reruns.
 
 Warm up is the first slide — off camera. Then start recording on **Two tickets**.
 
