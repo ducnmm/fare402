@@ -77,15 +77,21 @@ body {
 }
 
 .slide {
-  padding: 36px 40px 24px;
+  position: relative;
+  padding: 72px 36px 64px;
   background: transparent;
   overflow: auto;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 18px;
 }
 
 .slide-top {
+  position: absolute;
+  top: 28px;
+  left: 36px;
+  right: 24px;
   display: flex;
   align-items: baseline;
   gap: 12px;
@@ -186,13 +192,13 @@ h1 {
 }
 
 .hint {
-  margin: auto 0 0;
+  position: absolute;
+  bottom: 20px;
+  left: 36px;
+  right: 24px;
+  margin: 0;
   font-size: 14px;
   color: var(--muted);
-}
-
-.app.talk .hint {
-  margin: 0;
 }
 
 .hint kbd {
