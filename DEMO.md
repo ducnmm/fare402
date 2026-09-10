@@ -1,21 +1,16 @@
 # Demo script
 
-~2–3 minutes. Your voice, laptop screen, no music, no slides. Terminal font large.
-
-Open beforehand:
-
-- terminal in the fare repo
-- https://fare-production.up.railway.app/health
-- https://hashscan.io/testnet/account/0.0.10119186
-- https://hashscan.io/testnet/topic/0.0.10320508
-
-Against **live** (not localhost):
+~2–3 minutes. Your voice, no music. Split screen: **slide (what to say) + live terminal**.
 
 ```bash
-export FARE_BASE_URL=https://fare-production.up.railway.app
+npm run demo:deck
 ```
 
-Warm up once off-camera: `npm run try` then one `npx tsx scripts/pay-once.ts ping`.
+Opens `http://127.0.0.1:4040`. Fullscreen (`F`). **Space** runs the command on the slide; Space again goes next. `←` `→` skip. `R` reruns.
+
+Warm up is the first slide — off camera. Then start recording on **Two tickets**.
+
+Hits live Railway (`FARE_BASE_URL` is set by the deck). HashScan URLs in the terminal become links under it.
 
 The client prints four blocks: **YOU ASKED → MERCHANT QUOTED → YOU PAID → YOU GOT**. Zoom those.
 

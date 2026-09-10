@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fare — demo deck</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <section class="slide" id="slide">
+        <header class="slide-top">
+          <span class="brand">Fare</span>
+          <span class="kicker" id="kicker"></span>
+          <span class="count" id="count"></span>
+        </header>
+        <p class="badge" id="badge" hidden></p>
+        <h1 id="title"></h1>
+        <p class="say" id="say"></p>
+        <ul class="points" id="points"></ul>
+        <div class="run-box" id="runBox" hidden>
+          <span class="run-label">will run</span>
+          <code id="runCmd"></code>
+        </div>
+        <p class="hint" id="hint"></p>
+      </section>
+      <section class="term-wrap">
+        <header class="term-top">
+          <span class="dots" aria-hidden="true"></span>
+          <span class="term-title">live · fare-production.up.railway.app</span>
+          <span class="term-state" id="termState">idle</span>
+        </header>
+        <pre class="term" id="term"></pre>
+        <div class="links" id="links"></div>
+      </section>
+    </div>
+    <footer class="bar">
+      <span>Space run / next</span>
+      <span>← → skip</span>
+      <span>R rerun</span>
+      <span>F fullscreen</span>
+    </footer>
+    <script src="/app.js"></script>
+  </body>
+</html>
