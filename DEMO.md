@@ -52,12 +52,12 @@ Click the HashScan URL. Confirm CRYPTOTRANSFER SUCCESS, 100000 tinybars, payer �
 Wait for the JSON (~20–40s). Do not Ctrl+C.
 
 ```bash
-npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=50'
+npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'
 ```
 
-> Same account, limit 50. Six units, 600000 tinybars — six times a ping.
+> Same account, limit 25. Four units, 400000 tinybars — four times a ping.
 
-JSON should list 50 transactions. Open the HashScan link.
+JSON should list 25 transactions. Open the HashScan link.
 
 ### 2:00–2:40 — job ticket
 
@@ -77,7 +77,7 @@ https://hashscan.io/testnet/topic/0.0.10320508
 
 ---
 
-If short on time: skip ping, keep **account + limit=50 + job**.  
+If short on time: skip ping, keep **account + limit=25 + job**.  
 If still long: skip HCS.
 
 Do not explain architecture. Do not mention other products.

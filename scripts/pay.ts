@@ -42,4 +42,9 @@ try {
   /* unpaid or no PAYMENT-RESPONSE */
 }
 console.log(`HTTP ${res.status}`);
-console.log(await res.text());
+const text = await res.text();
+try {
+  console.log(JSON.stringify(JSON.parse(text) as unknown, null, 2));
+} catch {
+  console.log(text);
+}

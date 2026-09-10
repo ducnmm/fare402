@@ -21,7 +21,7 @@ const slides = [
     points: [
       "Read — live balance and transactions",
       "Run — AWS Lambda, you get stdout",
-      "50 txs cost 6× a ping. A longer job costs more.",
+      "25 txs cost 4× a ping. A longer job costs more.",
     ],
     run: null,
   },
@@ -63,12 +63,12 @@ const slides = [
     id: "txs",
     kicker: "live 3/5",
     title: "More rows, more HBAR",
-    say: "Same account. 50 transactions cost 6× a ping. Wait.",
-    call: "GET /v1/accounts/0.0.98/transactions?limit=50",
+    say: "Same account. 25 transactions cost 4× a ping. Wait.",
+    call: "GET /v1/accounts/0.0.98/transactions?limit=25",
     core: true,
-    points: ["quote 0.006 HBAR", "50 rows in the JSON"],
+    points: ["quote 0.004 HBAR", "25 rows in the JSON"],
     run: "txs",
-    runLabel: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=50'",
+    runLabel: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'",
   },
   {
     id: "job",
@@ -179,10 +179,16 @@ function renderSlide() {
 }
 
 function collectLinks(text) {
-  const found = text.match(HASHSCAN) ?? [];
-  const unique = [...new Set(found)];
+  const found = [];
+  const paid = text.match(/^paid\s+(https:\/\/hashscan\.io\/[^\s"'<>]+)/m);
+  if (paid) found.push(paid[1]);
+  const jsonAt = text.indexOf("\n{");
+  const head = jsonAt === -1 ? text : text.slice(0, jsonAt);
+  for (const match of head.matchAll(HASHSCAN)) {
+    if (!found.includes(match[0])) found.push(match[0]);
+  }
   links.replaceChildren();
-  for (const href of unique) {
+  for (const href of found) {
     const a = document.createElement("a");
     a.href = href;
     a.target = "_blank";
