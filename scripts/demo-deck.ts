@@ -25,42 +25,32 @@ const TSX = join(ROOT, "node_modules", "tsx", "dist", "cli.mjs");
 type Step = { argv: string[] };
 type Job = { label: string; steps: Step[] };
 
-function tsx(script: string, args: string[] = []): Step {
-  return { argv: [process.execPath, TSX, script, ...args] };
+const FARE = join(ROOT, "fare");
+
+function fare(args: string[]): Step {
+  return { argv: [FARE, ...args] };
 }
 
 const JOBS: Record<string, Job> = {
-  warmup: {
-    label: "npm run try && npx tsx scripts/pay-once.ts ping",
-    steps: [tsx("scripts/try.ts"), tsx("scripts/pay-once.ts", ["ping"])],
-  },
   ping402: {
     label: `curl -si ${LIVE}/v1/ping`,
     steps: [{ argv: ["curl", "-si", `${LIVE}/v1/ping`] }],
   },
   account: {
-    label: "npx tsx scripts/pay-once.ts account 0.0.98",
-    steps: [tsx("scripts/pay-once.ts", ["account", "0.0.98"])],
+    label: "fare account 0.0.98",
+    steps: [fare(["account", "0.0.98"])],
   },
   txs: {
-    label: "npx tsx scripts/pay-once.ts txs 0.0.98 25",
-    steps: [tsx("scripts/pay-once.ts", ["txs", "0.0.98", "25"])],
+    label: "fare txs 0.0.98 25",
+    steps: [fare(["txs", "0.0.98", "25"])],
   },
   job: {
-    label: "npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'",
-    steps: [tsx("scripts/pay-once.ts", ["job", "10", "console.log(1+1)"])],
+    label: "fare job 10 'console.log(1+1)'",
+    steps: [fare(["job", "10", "console.log(1+1)"])],
   },
   hcs: {
-    label: "curl Mirror Node — HCS topic 0.0.10320508",
-    steps: [
-      {
-        argv: [
-          "curl",
-          "-sS",
-          "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.10320508/messages?limit=5&order=desc",
-        ],
-      },
-    ],
+    label: "fare topic",
+    steps: [fare(["topic"])],
   },
 };
 
@@ -116,7 +106,7 @@ async function runJob(id: string, res: ServerResponse): Promise<void> {
     sendJson(res, 404, { error: "unknown_job" });
     return;
   }
-  if (!existsSync(TSX)) {
+  if (!existsSync(TSX) || !existsSync(FARE)) {
     sendJson(res, 500, { error: "tsx_missing" });
     return;
   }

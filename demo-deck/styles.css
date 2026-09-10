@@ -33,6 +33,20 @@ body {
   height: calc(100% - 36px);
 }
 
+.app.talk {
+  grid-template-columns: 1fr;
+}
+
+.app.talk .term-pane {
+  display: none;
+}
+
+.app.talk .slide {
+  max-width: 40rem;
+  margin: 0 auto;
+  justify-content: center;
+}
+
 .slide {
   padding: 36px 40px 24px;
   background: transparent;

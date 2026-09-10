@@ -2,67 +2,77 @@ const HASHSCAN = /https:\/\/hashscan\.io\/[^\s"'<>]+/g;
 
 const slides = [
   {
-    id: "warmup",
-    kicker: "off camera",
-    badge: "Off camera",
-    title: "Warm up once",
-    say: "Run this before you hit record. Proves 402 and one paid ping.",
-    points: ["No wallet UI — this deck talks to live Railway.", "Then go next and start recording."],
-    run: "warmup",
-    runLabel: "npm run try && npx tsx scripts/pay-once.ts ping",
-  },
-  {
-    id: "intro",
-    kicker: "0:00–0:15",
-    title: "Two tickets",
-    say: "Fare sells two tickets. Hedera lookups, and a Node job on AWS Lambda. You pay HBAR per request. More data or a longer job costs more.",
+    id: "what",
+    kicker: "what",
+    title: "Fare",
+    say: "An API that charges HBAR per request. One call, one payment.",
     points: [],
     run: null,
   },
   {
-    id: "ping402",
-    kicker: "0:15–0:40",
+    id: "tickets",
+    kicker: "what you buy",
+    title: "Two tickets",
+    say: "Hedera lookups, and a Node job on AWS Lambda.",
+    points: [
+      "Lookups — account balance and recent transactions",
+      "Jobs — run a short script, get stdout",
+      "Bigger ask → higher fare",
+    ],
+    run: null,
+  },
+  {
+    id: "pay",
+    kicker: "how it pays",
     title: "No pay, no data",
-    say: "No payment, so 402. One unit is 100000 tinybars — 0.001 HBAR. No JSON body yet.",
+    say: "You hit a route. Merchant answers HTTP 402 with a quote. You pay. You get JSON.",
+    points: ["1 unit = 0.001 HBAR", "x402 on Hedera · Blocky402 is the fee payer"],
+    run: null,
+  },
+  {
+    id: "ping402",
+    kicker: "live",
+    title: "Ask without paying",
+    say: "402. Quote is 0.001 HBAR. No JSON body yet.",
     points: ["Point at HTTP 402", "Then PAYMENT-REQUIRED"],
     run: "ping402",
     runLabel: "curl -si https://fare-production.up.railway.app/v1/ping",
   },
   {
     id: "account",
-    kicker: "0:40–1:20",
+    kicker: "live",
     title: "Pay for a lookup",
-    say: "Client pays 0.001 HBAR and gets the live balance from the Mirror Node.",
-    points: ["YOU ASKED — account 0.0.98", "QUOTED — 100000 tinybars", "PAID — HashScan link", "YOU GOT — balance … HBAR"],
+    say: "0.001 HBAR → live balance of Hedera account 0.0.98.",
+    points: ["YOU ASKED → QUOTED → PAID → YOU GOT", "Open the HashScan link"],
     run: "account",
-    runLabel: "npx tsx scripts/pay-once.ts account 0.0.98",
+    runLabel: "fare account 0.0.98",
   },
   {
     id: "txs",
-    kicker: "1:20–2:00",
+    kicker: "live",
     title: "More data, higher fare",
-    say: "Same account, limit 25. Four units, 400000 tinybars — four times a ping. Wait. Do not skip.",
-    points: ["YOU GOT should list 25 transactions", "Open the second HashScan if you have time"],
+    say: "Same account, 25 transactions. 0.004 HBAR — four times the lookup. Wait.",
+    points: ["YOU GOT should list 25 rows"],
     run: "txs",
-    runLabel: "npx tsx scripts/pay-once.ts txs 0.0.98 25",
+    runLabel: "fare txs 0.0.98 25",
   },
   {
     id: "job",
-    kicker: "2:00–2:40",
+    kicker: "live",
     title: "Pay for a job",
-    say: "Second product: pay 0.002 HBAR, Lambda runs the script, stdout is 2.",
-    points: ["body in YOU ASKED", "provider aws-lambda", "stdout 2"],
+    say: "0.002 HBAR. Lambda runs the script. stdout is 2.",
+    points: ["provider aws-lambda", "stdout 2"],
     run: "job",
-    runLabel: "npx tsx scripts/pay-once.ts job 10 'console.log(1+1)'",
+    runLabel: "fare job 10 'console.log(1+1)'",
   },
   {
     id: "hcs",
-    kicker: "2:40–3:00",
-    title: "HCS, stop",
-    say: "Each settle also writes amountTinybars onto this HCS topic. That's it.",
+    kicker: "live",
+    title: "Written on Hedera",
+    say: "Each payment also lands on this HCS topic. That's it.",
     points: ["Newest messages on topic 0.0.10320508"],
     run: "hcs",
-    runLabel: "curl Mirror Node topic 0.0.10320508",
+    runLabel: "fare topic",
   },
 ];
 
@@ -124,9 +134,11 @@ function renderSlide() {
     runBtn.hidden = true;
   }
 
-  if (busy) hint.innerHTML = "Running… wait. <kbd>Space</kbd> is next slide only.";
-  else if (s.run && !ran) hint.innerHTML = "<kbd>Enter</kbd> runs the terminal. <kbd>Space</kbd> is next slide.";
-  else if (index < slides.length - 1) hint.innerHTML = "<kbd>Space</kbd> next slide.";
+  document.querySelector(".app").classList.toggle("talk", !s.run);
+
+  if (busy) hint.innerHTML = "Running… wait. <kbd>Space</kbd> next.";
+  else if (s.run && !ran) hint.innerHTML = "<kbd>Enter</kbd> pastes this into the terminal.";
+  else if (index < slides.length - 1) hint.innerHTML = "<kbd>Space</kbd> next.";
   else hint.innerHTML = "Done. Stop recording.";
 }
 

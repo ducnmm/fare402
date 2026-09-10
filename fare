@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Tiny paying client for the live merchant. Demo: ./fare account 0.0.98
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+export FARE_BASE_URL="${FARE_BASE_URL:-https://fare-production.up.railway.app}"
+
+if [ "${1:-}" = "topic" ]; then
+  exec curl -sS "https://testnet.mirrornode.hedera.com/api/v1/topics/0.0.10320508/messages?limit=5&order=desc"
+fi
+
+exec "$ROOT/node_modules/.bin/tsx" "$ROOT/scripts/pay-once.ts" "$@"
