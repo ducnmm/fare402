@@ -17,7 +17,7 @@ const slides = [
     points: [
       "Read — live balance and transactions",
       "Run — AWS Lambda, you get stdout",
-      "Ask for more, pay more HBAR",
+      "25 txs cost 4× a ping. A longer job costs more.",
     ],
     run: null,
   },
