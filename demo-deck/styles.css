@@ -42,9 +42,38 @@ body {
 }
 
 .app.talk .slide {
-  max-width: 40rem;
-  margin: 0 auto;
+  position: relative;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   justify-content: center;
+  align-items: center;
+  padding: 72px 40px 64px;
+}
+
+.app.talk .slide-top {
+  position: absolute;
+  top: 28px;
+  left: 40px;
+  right: 40px;
+}
+
+.app.talk .hint {
+  position: absolute;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+}
+
+.app.talk h1,
+.app.talk .say {
+  max-width: 24ch;
+}
+
+.app.talk .points {
+  max-width: 36ch;
 }
 
 .slide {
@@ -160,6 +189,10 @@ h1 {
   margin: auto 0 0;
   font-size: 14px;
   color: var(--muted);
+}
+
+.app.talk .hint {
+  margin: 0;
 }
 
 .hint kbd {
