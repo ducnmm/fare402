@@ -56,10 +56,30 @@ type MirrorTxResponse = {
 
 const MIRROR_TIMEOUT_MS = 45_000;
 const MIRROR_TX_TIMEOUT_MS = 75_000;
-const MIRROR_RETRIES = 2;
+const MIRROR_RETRIES = 3;
+const MIRROR_TX_PAGE = 25;
 
 function isTimeout(err: unknown): boolean {
   return err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
+}
+
+function isTransientHttp(status: number): boolean {
+  return status === 429 || status === 502 || status === 503 || status === 504;
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function nextPath(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (next.startsWith("http://") || next.startsWith("https://")) {
+    const url = new URL(next);
+    return `${url.pathname}${url.search}`;
+  }
+  return next.startsWith("/") ? next : `/${next}`;
 }
 
 async function mirrorGet<T>(baseUrl: string, path: string, timeoutMs = MIRROR_TIMEOUT_MS): Promise<T> {
@@ -77,6 +97,10 @@ async function mirrorGet<T>(baseUrl: string, path: string, timeoutMs = MIRROR_TI
         throw new MirrorError("account not found on Hedera mirror node", 404);
       }
       if (!response.ok) {
+        if (isTransientHttp(response.status) && attempt < MIRROR_RETRIES) {
+          await delay(800 * (attempt + 1));
+          continue;
+        }
         throw new MirrorError(`mirror node HTTP ${response.status}`, response.status);
       }
       return (await response.json()) as T;
@@ -84,7 +108,7 @@ async function mirrorGet<T>(baseUrl: string, path: string, timeoutMs = MIRROR_TI
       if (err instanceof MirrorError) throw err;
       lastErr = err;
       if (isTimeout(err) && attempt < MIRROR_RETRIES) {
-        await new Promise((r) => setTimeout(r, 500));
+        await delay(800 * (attempt + 1));
         continue;
       }
       if (isTimeout(err)) {
@@ -119,37 +143,46 @@ export async function fetchAccountSummary(baseUrl: string, accountId: string): P
   };
 }
 
+function mapTx(
+  tx: NonNullable<MirrorTxResponse["transactions"]>[number],
+  hashscanTx: (txId: string) => string,
+): MirrorTransaction {
+  const transactionId = tx.transaction_id ?? "";
+  return {
+    transactionId,
+    name: tx.name ?? "UNKNOWN",
+    result: tx.result ?? "UNKNOWN",
+    consensusTimestamp: tx.consensus_timestamp ?? "",
+    chargedTxFee: tx.charged_tx_fee ?? null,
+    transfers: (tx.transfers ?? [])
+      .filter((t) => t.account !== undefined && t.amount !== undefined)
+      .map((t) => ({ account: t.account as string, amount: t.amount as number })),
+    hashscan: transactionId ? hashscanTx(transactionId) : "",
+  };
+}
+
 export async function fetchAccountTransactions(
   baseUrl: string,
   accountId: string,
   limit: number,
   hashscanTx: (txId: string) => string,
 ): Promise<{ account: string; limit: number; transactions: MirrorTransaction[] }> {
-  const query = new URLSearchParams({
+  const transactions: MirrorTransaction[] = [];
+  const firstQuery = new URLSearchParams({
     "account.id": accountId,
-    limit: String(limit),
+    limit: String(Math.min(MIRROR_TX_PAGE, limit)),
     order: "desc",
   });
-  const body = await mirrorGet<MirrorTxResponse>(
-    baseUrl,
-    `/api/v1/transactions?${query.toString()}`,
-    MIRROR_TX_TIMEOUT_MS,
-  );
+  let path: string | null = `/api/v1/transactions?${firstQuery.toString()}`;
 
-  const transactions = (body.transactions ?? []).map((tx) => {
-    const transactionId = tx.transaction_id ?? "";
-    return {
-      transactionId,
-      name: tx.name ?? "UNKNOWN",
-      result: tx.result ?? "UNKNOWN",
-      consensusTimestamp: tx.consensus_timestamp ?? "",
-      chargedTxFee: tx.charged_tx_fee ?? null,
-      transfers: (tx.transfers ?? [])
-        .filter((t) => t.account !== undefined && t.amount !== undefined)
-        .map((t) => ({ account: t.account as string, amount: t.amount as number })),
-      hashscan: transactionId ? hashscanTx(transactionId) : "",
-    };
-  });
+  while (path && transactions.length < limit) {
+    const body = await mirrorGet<MirrorTxResponse>(baseUrl, path, MIRROR_TX_TIMEOUT_MS);
+    const page = (body.transactions ?? []).map((tx) => mapTx(tx, hashscanTx));
+    if (page.length === 0) break;
+    transactions.push(...page);
+    if (transactions.length >= limit) break;
+    path = nextPath(body.links?.next ?? null);
+  }
 
-  return { account: accountId, limit, transactions };
+  return { account: accountId, limit, transactions: transactions.slice(0, limit) };
 }

@@ -28,6 +28,7 @@ test("transaction list meters 1 + ceil(limit/10)", () => {
   assert.equal(unitsForTransactions(10), 2);
   assert.equal(unitsForTransactions(11), 3);
   assert.equal(unitsForTransactions(25), 4);
+  assert.equal(unitsForTransactions(50), 6);
   assert.equal(unitsForTransactions(100), 11);
   assert.equal(tinybarsForUnits(unitsForTransactions(25)), 400_000);
 });
