@@ -1,5 +1,5 @@
 :root {
-  --page: #c5cbd3;
+  --page: #e7eedd;
   --slide: #e7eedd;
   --ink: #1c2118;
   --muted: #5c6654;
@@ -35,7 +35,7 @@ body {
 
 .slide {
   padding: 36px 40px 24px;
-  background: var(--slide);
+  background: transparent;
   overflow: auto;
   display: flex;
   flex-direction: column;
@@ -167,7 +167,7 @@ h1 {
   gap: 12px;
   min-width: 0;
   padding: 36px 28px;
-  background: var(--page);
+  background: transparent;
 }
 
 .term-window {
@@ -286,12 +286,12 @@ h1 {
   height: 36px;
   padding: 0 16px;
   align-items: center;
-  border-top: 1px solid #b7bec7;
-  color: #5c6570;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  background: #dbe0e6;
+  background: var(--page);
   position: sticky;
   bottom: 0;
   z-index: 2;
