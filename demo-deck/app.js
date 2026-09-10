@@ -1,5 +1,9 @@
 const HASHSCAN = /https:\/\/hashscan\.io\/[^\s"'<>]+/g;
 
+const PAY_CORE = `// scripts/pay.ts
+const res = await pay(url);   // 402 → sign HBAR → retry
+console.log(await res.text());`;
+
 const slides = [
   {
     id: "what",
@@ -35,56 +39,55 @@ const slides = [
     run: null,
   },
   {
-    id: "script",
-    kicker: "the client",
-    title: "This is the script",
-    say: "About 40 lines. It handles 402, pays HBAR, prints JSON.",
-    points: [],
-    run: null,
-    showScript: true,
-  },
-  {
     id: "ping402",
-    kicker: "live",
+    kicker: "live 1/5",
     title: "Ask without paying",
-    say: "402. Quote is 0.001 HBAR. No JSON body yet.",
-    points: ["Point at HTTP 402", "Then PAYMENT-REQUIRED"],
+    say: "No wallet. Watch the terminal: the API refuses.",
+    call: "GET /v1/ping",
+    points: ["HTTP 402", "price 0.001 HBAR", "no JSON body"],
     run: "ping402",
     runLabel: "curl -si https://fare-production.up.railway.app/v1/ping",
   },
   {
     id: "account",
-    kicker: "live",
-    title: "Pay for a lookup",
-    say: "0.001 HBAR → live balance of Hedera account 0.0.98.",
-    points: ["Pays 0.001 HBAR, then prints the balance", "Click the HashScan link in the terminal"],
+    kicker: "live 2/5",
+    title: "Pay, then read",
+    say: "Same API. Now the client pays the quote.",
+    call: "GET /v1/accounts/0.0.98",
+    core: true,
+    points: ["402 then 200", "live balance", "HashScan link"],
     run: "account",
     runLabel: "npx tsx scripts/pay.ts GET /v1/accounts/0.0.98",
   },
   {
     id: "txs",
-    kicker: "live",
-    title: "More data, higher fare",
-    say: "Same account, 25 transactions. 0.004 HBAR — four times the lookup. Wait.",
-    points: ["YOU GOT should list 25 rows"],
+    kicker: "live 3/5",
+    title: "More rows, more HBAR",
+    say: "Same account. 25 transactions cost 4× a ping. Wait.",
+    call: "GET /v1/accounts/0.0.98/transactions?limit=25",
+    core: true,
+    points: ["quote 0.004 HBAR", "25 rows in the JSON"],
     run: "txs",
     runLabel: "npx tsx scripts/pay.ts GET '/v1/accounts/0.0.98/transactions?limit=25'",
   },
   {
     id: "job",
-    kicker: "live",
-    title: "Pay for a job",
-    say: "0.002 HBAR. Lambda runs the script. stdout is 2.",
-    points: ["provider aws-lambda", "stdout 2"],
+    kicker: "live 4/5",
+    title: "Pay to run a job",
+    say: "Second product. Lambda runs the script.",
+    call: "POST /v1/jobs  { script: console.log(1+1) }",
+    core: true,
+    points: ["quote 0.002 HBAR", "stdout is 2"],
     run: "job",
     runLabel: "npx tsx scripts/pay.ts POST /v1/jobs '{\"script\":\"console.log(1+1)\",\"timeoutSeconds\":10}'",
   },
   {
     id: "hcs",
-    kicker: "live",
-    title: "Written on Hedera",
-    say: "Each payment also lands on this HCS topic. That's it.",
-    points: ["Newest messages on topic 0.0.10320508"],
+    kicker: "live 5/5",
+    title: "Also on Hedera",
+    say: "Each payment is written to this HCS topic.",
+    call: "GET topic/0.0.10320508/messages",
+    points: ["newest lines include amountTinybars"],
     run: "hcs",
     runLabel: "curl topic 0.0.10320508",
   },
@@ -121,9 +124,24 @@ function renderSlide() {
     badge.hidden = true;
   }
 
-  const source = document.getElementById("source");
-  source.hidden = !s.showScript;
-  if (s.showScript) source.scrollTop = 0;
+  const callBox = document.getElementById("callBox");
+  const callLine = document.getElementById("callLine");
+  if (s.call) {
+    callBox.hidden = false;
+    callLine.textContent = s.call;
+  } else {
+    callBox.hidden = true;
+    callLine.textContent = "";
+  }
+
+  const excerpt = document.getElementById("excerpt");
+  if (s.core) {
+    excerpt.hidden = false;
+    excerpt.textContent = PAY_CORE;
+  } else {
+    excerpt.hidden = true;
+    excerpt.textContent = "";
+  }
 
   const ul = document.getElementById("points");
   ul.replaceChildren();
@@ -284,12 +302,4 @@ document.getElementById("runBtn").addEventListener("click", (e) => {
 });
 
 resetTerm(slides[0].run ? "Enter to run" : "");
-fetch("/client-src")
-  .then((r) => r.text())
-  .then((text) => {
-    document.getElementById("source").textContent = text;
-  })
-  .catch(() => {
-    document.getElementById("source").textContent = "(could not load scripts/pay.ts)";
-  });
 renderSlide();

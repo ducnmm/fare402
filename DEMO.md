@@ -6,7 +6,7 @@
 npm run demo:deck
 ```
 
-Opens `http://127.0.0.1:4040`. Fullscreen (`F`). Opening slides explain Fare, then show `scripts/pay.ts` (~40 lines). **Enter** runs that script. **Space** is next slide only.
+Opens `http://127.0.0.1:4040`. Fullscreen (`F`). 3 explain slides, then 5 live calls. Left shows **this request**; right is the terminal. **Enter** runs. **Space** next.
 
 Off camera, once: `npx tsx scripts/pay.ts GET /v1/ping`. Start recording on slide 1 **Fare**.
 
