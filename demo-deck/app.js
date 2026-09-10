@@ -151,6 +151,7 @@ async function runCurrent() {
   busy = true;
   ran = true;
   abort = new AbortController();
+  term.classList.remove("idle");
   term.textContent = "";
   links.replaceChildren();
   setState("running", "run");
@@ -208,6 +209,7 @@ async function runCurrent() {
 
 function resetTerm(message) {
   term.textContent = message;
+  term.classList.toggle("idle", Boolean(message));
   links.replaceChildren();
   setState("idle", "");
 }
@@ -222,7 +224,7 @@ function go(delta) {
   index = next;
   ran = false;
   const s = slides[index];
-  resetTerm(s.run ? "idle — press Enter to run" : "");
+  resetTerm(s.run ? "Enter to run" : "");
   renderSlide();
 }
 
@@ -251,5 +253,5 @@ document.getElementById("runBtn").addEventListener("click", (e) => {
   void runCurrent();
 });
 
-resetTerm(slides[0].run ? "idle — press Enter to run" : "");
+resetTerm(slides[0].run ? "Enter to run" : "");
 renderSlide();

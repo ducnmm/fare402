@@ -249,6 +249,14 @@ h1 {
   word-break: break-word;
 }
 
+.term.idle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #8a8a8a;
+}
+
 .links {
   display: flex;
   flex-wrap: wrap;
